@@ -59,6 +59,7 @@ export const auth: ReturnType<typeof betterAuth> = betterAuth({
     'capacitor://localhost',
     'petopia://',
     'petopia-petcare://',
+    "petopia-petcare:///",  // iOS style
     'https://appleid.apple.com',
     // Expo development URLs with wildcards
     ...(process.env.NODE_ENV === 'development'
