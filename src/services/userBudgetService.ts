@@ -164,12 +164,12 @@ export class UserBudgetService {
       999
     );
 
-    // Get all expenses for the user in current month with matching currency
+    // Get all expenses for the user in current month (use amountBase for multi-currency support)
     const monthlyExpenses = await ExpenseModel.aggregate<MonthlyExpenseAggregate>([
       {
         $match: {
           userId: new Types.ObjectId(userId),
-          currency: budget.currency,
+          baseCurrency: budget.currency,
           date: {
             $gte: startDate,
             $lte: endDate
@@ -188,7 +188,7 @@ export class UserBudgetService {
       {
         $project: {
           petId: '$petId',
-          amount: 1,
+          amount: '$amountBase',
           description: 1,
           date: 1,
           petName: '$pet.name',
@@ -201,11 +201,30 @@ export class UserBudgetService {
       {
         $match: {
           userId: new Types.ObjectId(userId),
-          currency: budget.currency,
+          baseCurrency: budget.currency,
           date: {
             $gte: prevStartDate,
             $lte: prevEndDate
           }
+        }
+      },
+      {
+        $lookup: {
+          from: 'pets',
+          localField: 'petId',
+          foreignField: '_id',
+          as: 'pet'
+        }
+      },
+      { $unwind: '$pet' },
+      {
+        $project: {
+          petId: '$petId',
+          amount: '$amountBase',
+          description: 1,
+          date: 1,
+          petName: '$pet.name',
+          category: 1
         }
       }
     ]);

@@ -110,11 +110,10 @@ export class ExpenseController {
         !expenseData.petId ||
         !expenseData.category ||
         expenseData.amount === undefined ||
-        !expenseData.currency ||
         !expenseData.date
       ) {
         throw createError(
-          'Pet ID, category, amount, currency, and date are required',
+          'Pet ID, category, amount, and date are required',
           400,
           'MISSING_REQUIRED_FIELDS'
         );

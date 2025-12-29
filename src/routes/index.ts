@@ -6,6 +6,7 @@ import eventRoutes from './eventRoutes';
 import feedingScheduleRoutes from './feedingScheduleRoutes';
 import expenseRoutes from './expenseRoutes';
 import userBudgetRoutes from './userBudgetRoutes';
+import userSettingsRoutes from './userSettingsRoutes';
 import subscriptionRoutes from './subscriptionRoutes';
 import { WebhookController } from '../controllers/webhookController';
 
@@ -25,6 +26,7 @@ router.use('/events', eventRoutes);
 router.use('/feeding-schedules', feedingScheduleRoutes);
 router.use('/expenses', expenseRoutes);
 router.use('/budget', userBudgetRoutes);
+router.use('/settings', userSettingsRoutes);
 router.use('/subscription', subscriptionRoutes);
 
 // Pet-specific nested routes

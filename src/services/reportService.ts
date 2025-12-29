@@ -2,6 +2,9 @@ import PDFDocument from 'pdfkit';
 import { Types } from 'mongoose';
 import { EventModel, ExpenseModel, HealthRecordModel, PetModel } from '../models/mongoose';
 import { createError } from '../middleware/errorHandler';
+import { UserSettingsService } from './userSettingsService';
+
+const userSettingsService = new UserSettingsService();
 
 interface VetSummaryInput {
   userId: string;
@@ -15,6 +18,8 @@ export class ReportService {
     if (!pet) {
       throw createError('Pet not found', 404, 'PET_NOT_FOUND');
     }
+
+    const baseCurrency = await userSettingsService.getUserBaseCurrency(userId);
 
     const healthRecords = await HealthRecordModel.find({
       userId: new Types.ObjectId(userId),
@@ -98,7 +103,7 @@ export class ReportService {
             [
               record.veterinarian ? `Vet: ${record.veterinarian}` : null,
               record.clinic ? `Clinic: ${record.clinic}` : null,
-              record.cost ? `Cost: ${formatCurrency(record.cost, 'TRY')}` : null,
+              record.cost ? `Cost: ${formatCurrency(record.cost, baseCurrency)}` : null,
             ]
               .filter(Boolean)
               .join(' • ')

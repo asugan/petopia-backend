@@ -37,7 +37,7 @@ const createExpenseSchema = z.object({
   currency: z
     .string()
     .length(3, 'Currency must be 3 characters (e.g., TRY, USD, EUR)')
-    .default('TRY'),
+    .optional(),
   paymentMethod: z.enum(paymentMethods).optional(),
   description: z.string().optional(),
   date: z.string().min(1, 'Date is required'),

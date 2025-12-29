@@ -99,6 +99,10 @@ export interface IExpenseDocument extends Document {
   category: string;
   amount: number;
   currency: string;
+  baseCurrency?: string;
+  amountBase?: number;
+  fxRate?: number;
+  fxAsOf?: Date;
   paymentMethod?: string;
   description?: string;
   date: Date;
@@ -164,6 +168,27 @@ export interface IUserTrialRegistryDocument extends Document {
   _id: Types.ObjectId;
   userId: Types.ObjectId;
   trialUsedAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Exchange Rate Document Interface
+export interface IExchangeRateDocument extends Document {
+  _id: Types.ObjectId;
+  baseCurrency: string;
+  rates: Record<string, number>;
+  fetchedAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IUserSettingsDocument extends Document {
+  _id: Types.ObjectId;
+  userId: Types.ObjectId;
+  baseCurrency: 'TRY' | 'USD' | 'EUR' | 'GBP';
+  timezone: string;
+  language: string;
+  theme: 'light' | 'dark';
   createdAt: Date;
   updatedAt: Date;
 }

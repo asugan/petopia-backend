@@ -6,9 +6,11 @@ export { FeedingScheduleModel } from './feedingSchedule';
 export { ExpenseModel } from './expense';
 export { BudgetLimitModel } from './budgetLimit';
 export { UserBudgetModel } from './userBudget';
+export { UserSettingsModel } from './userSettings';
 export { SubscriptionModel } from './subscription';
 export { DeviceTrialRegistryModel } from './deviceTrialRegistry';
 export { UserTrialRegistryModel } from './userTrialRegistry';
+export { ExchangeRateModel } from './exchangeRate';
 
 // Export document interfaces
 export type {
@@ -18,8 +20,10 @@ export type {
   IFeedingScheduleDocument,
   IExpenseDocument,
   IUserBudgetDocument,
+  IUserSettingsDocument,
   ISubscriptionDocument,
   IBudgetLimitDocument,
   IDeviceTrialRegistryDocument,
-  IUserTrialRegistryDocument
+  IUserTrialRegistryDocument,
+  IExchangeRateDocument
 } from './types';

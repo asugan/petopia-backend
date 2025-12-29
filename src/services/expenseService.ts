@@ -1,8 +1,23 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any */
-import { HydratedDocument, QueryFilter, Types, UpdateQuery } from 'mongoose';
+import { HydratedDocument, UpdateQuery } from 'mongoose';
 import { ExpenseModel, IExpenseDocument, PetModel } from '../models/mongoose';
 import { ExpenseQueryParams } from '../types/api';
+import { ExchangeRateService } from './exchangeRateService';
+import { UserSettingsService } from './userSettingsService';
 import PDFDocument from 'pdfkit';
+
+const exchangeRateService = new ExchangeRateService();
+const userSettingsService = new UserSettingsService();
+
+interface ExpenseFilter {
+  userId: string;
+  petId?: string;
+  category?: string;
+  currency?: string;
+  paymentMethod?: string;
+  date?: { $gte?: Date; $lte?: Date };
+  amount?: { $gte?: number; $lte?: number };
+  baseCurrency?: string;
+}
 
 export class ExpenseService {
   async getExpensesByPetId(
@@ -23,12 +38,10 @@ export class ExpenseService {
     } = params ?? {};
     const offset = (page - 1) * limit;
 
-    // Build where conditions - always filter by userId
-    const whereClause: QueryFilter<IExpenseDocument> = { userId: new Types.ObjectId(userId) };
+    const whereClause: ExpenseFilter = { userId };
 
-    // Only filter by petId if provided
     if (petId) {
-      whereClause.petId = new Types.ObjectId(petId);
+      whereClause.petId = petId;
     }
 
     if (category) {
@@ -44,17 +57,18 @@ export class ExpenseService {
     }
 
     if (startDate || endDate) {
-      whereClause.date = {};
+      const dateQuery: { $gte?: Date; $lte?: Date } = {};
+      whereClause.date = dateQuery;
       if (startDate) {
-        whereClause.date.$gte = new Date(startDate);
+        dateQuery.$gte = new Date(startDate);
       }
       if (endDate) {
-        whereClause.date.$lte = new Date(endDate);
+        dateQuery.$lte = new Date(endDate);
       }
     }
 
     if (minAmount !== undefined || maxAmount !== undefined) {
-      const amountQuery: Record<string, number> = {};
+      const amountQuery: { $gte?: number; $lte?: number } = {};
       if (minAmount !== undefined) {
         amountQuery.$gte = minAmount;
       }
@@ -64,10 +78,8 @@ export class ExpenseService {
       whereClause.amount = amountQuery;
     }
 
-    // Get total count
     const total = await ExpenseModel.countDocuments(whereClause);
 
-    // Get expenses with pagination
     const expenseList = await ExpenseModel.find(whereClause)
       .sort({ date: -1 })
       .limit(limit)
@@ -89,11 +101,33 @@ export class ExpenseService {
     userId: string,
     expenseData: Partial<IExpenseDocument>
   ): Promise<HydratedDocument<IExpenseDocument>> {
-    // Verify pet exists and belongs to user
     const pet = await PetModel.findOne({ _id: expenseData.petId, userId }).exec();
 
     if (!pet) {
       throw new Error('Pet not found');
+    }
+
+    const baseCurrency = await userSettingsService.getUserBaseCurrency(userId);
+    const expenseCurrency = expenseData.currency ?? baseCurrency;
+    const expenseAmount = expenseData.amount ?? 0;
+    expenseData.currency = expenseCurrency;
+
+    if (expenseCurrency === baseCurrency) {
+      expenseData.baseCurrency = baseCurrency;
+      expenseData.amountBase = expenseAmount;
+      expenseData.fxRate = 1;
+      expenseData.fxAsOf = new Date();
+    } else {
+      const rate = await exchangeRateService.getRate(expenseCurrency, baseCurrency);
+      
+      if (rate === null) {
+        throw new Error('Exchange rate not available for currency conversion');
+      }
+
+      expenseData.baseCurrency = baseCurrency;
+      expenseData.amountBase = this.round(expenseAmount * rate);
+      expenseData.fxRate = rate;
+      expenseData.fxAsOf = new Date();
     }
 
     const newExpense = new ExpenseModel({ ...expenseData, userId });
@@ -108,14 +142,44 @@ export class ExpenseService {
   async updateExpense(
     userId: string,
     id: string,
-    updates: UpdateQuery<IExpenseDocument>
+    updates: Partial<IExpenseDocument>
   ): Promise<HydratedDocument<IExpenseDocument> | null> {
-    // Don't allow updating userId
-    const { ...safeUpdates } = updates;
+    const expense = await ExpenseModel.findOne({ _id: id, userId }).exec();
+    
+    if (!expense) {
+      throw new Error('Expense not found');
+    }
+
+    const safeUpdates: Partial<IExpenseDocument> = { ...updates };
+    delete safeUpdates.userId;
+
+    if (updates.currency !== undefined || updates.amount !== undefined) {
+      const baseCurrency = await userSettingsService.getUserBaseCurrency(userId);
+      const expenseCurrency = updates.currency ?? expense.currency;
+      const expenseAmount = updates.amount ?? expense.amount;
+
+      if (expenseCurrency === baseCurrency) {
+        safeUpdates.baseCurrency = baseCurrency;
+        safeUpdates.amountBase = expenseAmount;
+        safeUpdates.fxRate = 1;
+        safeUpdates.fxAsOf = new Date();
+      } else {
+        const rate = await exchangeRateService.getRate(expenseCurrency, baseCurrency);
+        
+        if (rate === null) {
+          throw new Error('Exchange rate not available for currency conversion');
+        }
+
+        safeUpdates.baseCurrency = baseCurrency;
+        safeUpdates.amountBase = this.round(expenseAmount * rate);
+        safeUpdates.fxRate = rate;
+        safeUpdates.fxAsOf = new Date();
+      }
+    }
 
     const updatedExpense = await ExpenseModel.findOneAndUpdate(
       { _id: id, userId },
-      safeUpdates,
+      safeUpdates as UpdateQuery<IExpenseDocument>,
       { new: true }
     ).exec();
 
@@ -133,21 +197,12 @@ export class ExpenseService {
     startDate: Date,
     endDate: Date
   ): Promise<HydratedDocument<IExpenseDocument>[]> {
-    const whereClause: QueryFilter<IExpenseDocument> = {
-      userId: new Types.ObjectId(userId),
-      date: {
-        $gte: startDate,
-        $lte: endDate
-      }
-    };
-
-    if (petId) {
-      whereClause.petId = new Types.ObjectId(petId);
-    }
-
-    return await ExpenseModel.find(whereClause)
-      .sort({ date: -1 })
-      .exec();
+    return this.getExpensesByPetId(userId, petId, {
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      page: 1,
+      limit: 1000,
+    }).then(result => result.expenses);
   }
 
   async getExpenseStats(
@@ -163,19 +218,21 @@ export class ExpenseService {
     byCategory: { category: string; total: number; count: number }[];
     byCurrency: { currency: string; total: number }[];
   }> {
-    const whereClause: QueryFilter<IExpenseDocument> = { userId: new Types.ObjectId(userId) };
+    const baseCurrency = await userSettingsService.getUserBaseCurrency(userId);
+    const whereClause: ExpenseFilter = { userId, baseCurrency };
 
     if (petId) {
-      whereClause.petId = new Types.ObjectId(petId);
+      whereClause.petId = petId;
     }
 
     if (startDate || endDate) {
-      whereClause.date = {};
+      const dateQuery: { $gte?: Date; $lte?: Date } = {};
+      whereClause.date = dateQuery;
       if (startDate) {
-        whereClause.date.$gte = startDate;
+        dateQuery.$gte = startDate;
       }
       if (endDate) {
-        whereClause.date.$lte = endDate;
+        dateQuery.$lte = endDate;
       }
     }
 
@@ -183,13 +240,12 @@ export class ExpenseService {
       whereClause.category = category;
     }
 
-    // Get total and count
     const totalResultList = await ExpenseModel.aggregate([
-      { $match: whereClause as any },
+      { $match: whereClause },
       {
         $group: {
           _id: null,
-          total: { $sum: '$amount' },
+          total: { $sum: '$amountBase' },
           count: { $sum: 1 },
         },
       },
@@ -200,22 +256,20 @@ export class ExpenseService {
     const expenseCount = totalResult?.count ?? 0;
     const average = expenseCount > 0 ? total / expenseCount : 0;
 
-    // Get stats by category
     const byCategory = await ExpenseModel.aggregate([
-      { $match: whereClause as any },
+      { $match: whereClause },
       {
         $group: {
           _id: '$category',
-          total: { $sum: '$amount' },
+          total: { $sum: '$amountBase' },
           count: { $sum: 1 },
         },
       },
       { $project: { _id: 0, category: '$_id', total: 1, count: 1 } },
     ]) as unknown as { category: string; total: number; count: number }[];
 
-    // Get stats by currency
     const byCurrency = await ExpenseModel.aggregate([
-      { $match: whereClause as any },
+      { $match: whereClause },
       {
         $group: {
           _id: '$currency',
@@ -269,18 +323,11 @@ export class ExpenseService {
     category: string,
     petId?: string
   ): Promise<HydratedDocument<IExpenseDocument>[]> {
-    const whereClause: QueryFilter<IExpenseDocument> = {
-      userId: new Types.ObjectId(userId),
-      category
-    };
-
-    if (petId) {
-      whereClause.petId = new Types.ObjectId(petId);
-    }
-
-    return await ExpenseModel.find(whereClause)
-      .sort({ date: -1 })
-      .exec();
+    return this.getExpensesByPetId(userId, petId, {
+      category,
+      page: 1,
+      limit: 1000,
+    }).then(result => result.expenses);
   }
 
   async exportExpensesCSV(
@@ -289,19 +336,20 @@ export class ExpenseService {
     startDate?: Date,
     endDate?: Date
   ): Promise<string> {
-    const whereClause: QueryFilter<IExpenseDocument> = { userId: new Types.ObjectId(userId) };
+    const whereClause: ExpenseFilter = { userId };
 
     if (petId) {
-      whereClause.petId = new Types.ObjectId(petId);
+      whereClause.petId = petId;
     }
 
     if (startDate || endDate) {
-      whereClause.date = {};
+      const dateQuery: { $gte?: Date; $lte?: Date } = {};
+      whereClause.date = dateQuery;
       if (startDate) {
-        whereClause.date.$gte = startDate;
+        dateQuery.$gte = startDate;
       }
       if (endDate) {
-        whereClause.date.$lte = endDate;
+        dateQuery.$lte = endDate;
       }
     }
 
@@ -312,13 +360,16 @@ export class ExpenseService {
     const escapeCsvValue = (value: string): string =>
       `"${value.replace(/"/g, '""')}"`;
 
-    // Generate CSV
     const headers = [
       'ID',
       'Pet ID',
       'Category',
       'Amount',
       'Currency',
+      'Amount Base',
+      'Base Currency',
+      'FX Rate',
+      'FX As Of',
       'Payment Method',
       'Description',
       'Date',
@@ -331,6 +382,10 @@ export class ExpenseService {
       expense.category,
       expense.amount.toString(),
       expense.currency,
+      expense.amountBase?.toString() ?? '',
+      expense.baseCurrency ?? '',
+      expense.fxRate?.toString() ?? '',
+      expense.fxAsOf?.toISOString() ?? '',
       expense.paymentMethod ?? '',
       expense.description ?? '',
       expense.date.toISOString(),
@@ -352,19 +407,20 @@ export class ExpenseService {
     startDate?: Date,
     endDate?: Date
   ): Promise<Buffer> {
-    const whereClause: QueryFilter<IExpenseDocument> = { userId: new Types.ObjectId(userId) };
+    const whereClause: ExpenseFilter = { userId };
 
     if (petId) {
-      whereClause.petId = new Types.ObjectId(petId);
+      whereClause.petId = petId;
     }
 
     if (startDate || endDate) {
-      whereClause.date = {};
+      const dateQuery: { $gte?: Date; $lte?: Date } = {};
+      whereClause.date = dateQuery;
       if (startDate) {
-        whereClause.date.$gte = startDate;
+        dateQuery.$gte = startDate;
       }
       if (endDate) {
-        whereClause.date.$lte = endDate;
+        dateQuery.$lte = endDate;
       }
     }
 
@@ -372,8 +428,10 @@ export class ExpenseService {
       .sort({ date: -1 })
       .exec();
 
+    const baseCurrency = await userSettingsService.getUserBaseCurrency(userId);
     const totalsByCategoryCurrency: Record<string, number> = {};
     const totalsByCurrency: Record<string, number> = {};
+    const totalsBase: number = expenses.reduce((sum, exp) => sum + (exp.amountBase ?? 0), 0);
 
     for (const expense of expenses) {
       const category = expense.category || 'other';
@@ -406,18 +464,10 @@ export class ExpenseService {
     doc.fontSize(12).text('Summary', { underline: true });
     doc.moveDown(0.25);
     doc.fontSize(10).text(`Total records: ${expenses.length}`);
+    doc.text(`Total (base currency): ${formatCurrency(totalsBase, baseCurrency)}`);
     const currencyEntries = Object.entries(totalsByCurrency);
-    if (currencyEntries.length === 0) {
-      doc.text('Total amount: -');
-    } else if (currencyEntries.length === 1) {
-      const firstEntry = currencyEntries[0];
-      if (firstEntry) {
-        const currency = firstEntry[0];
-        const total = firstEntry[1];
-        doc.text(`Total amount: ${formatCurrency(total, currency)}`);
-      }
-    } else {
-      doc.text('Total amount:');
+    if (currencyEntries.length > 0) {
+      doc.text('Total by original currency:');
       currencyEntries.forEach(([currency, total]) => {
         doc.fontSize(10).text(`- ${formatCurrency(total, currency)}`);
       });
@@ -439,7 +489,7 @@ export class ExpenseService {
       doc
         .fontSize(10)
         .text(
-          `${expense.date.toISOString().split('T')[0]} • ${expense.category} • ${formatCurrency(expense.amount, expense.currency)}`,
+          `${expense.date.toISOString().split('T')[0]} • ${expense.category} • ${formatCurrency(expense.amount, expense.currency)}${expense.amountBase ? ` (≈ ${formatCurrency(expense.amountBase, expense.baseCurrency)})` : ''}`,
           { continued: false }
         );
       if (expense.description) {
@@ -464,5 +514,10 @@ export class ExpenseService {
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
     });
+  }
+
+  private round(value: number, decimals = 2): number {
+    const factor = Math.pow(10, decimals);
+    return Math.round(value * factor) / factor;
   }
 }

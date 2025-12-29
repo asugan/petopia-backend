@@ -175,7 +175,7 @@ export interface CreateExpenseRequest {
   petId: string;
   category: string;
   amount: number;
-  currency: string;
+  currency?: string;
   paymentMethod?: string;
   description?: string;
   date: string;
@@ -275,4 +275,26 @@ export interface BudgetAlert {
     petName: string;
     spending: number;
   }[];
+}
+
+export interface UserSettings {
+  id: string;
+  userId: string;
+  baseCurrency: 'TRY' | 'USD' | 'EUR' | 'GBP';
+  timezone: string;
+  language: string;
+  theme: 'light' | 'dark';
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface UpdateUserSettingsRequest {
+  baseCurrency?: 'TRY' | 'USD' | 'EUR' | 'GBP';
+  timezone?: string;
+  language?: string;
+  theme?: 'light' | 'dark';
+}
+
+export interface UpdateBaseCurrencyRequest {
+  baseCurrency: 'TRY' | 'USD' | 'EUR' | 'GBP';
 }

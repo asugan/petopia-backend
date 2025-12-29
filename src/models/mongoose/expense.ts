@@ -7,6 +7,10 @@ const expenseSchema = new Schema<IExpenseDocument>({
   category: { type: String, required: true },
   amount: { type: Number, required: true },
   currency: { type: String, default: 'TRY' },
+  baseCurrency: { type: String, index: true },
+  amountBase: { type: Number, index: true },
+  fxRate: { type: Number },
+  fxAsOf: { type: Date },
   paymentMethod: String,
   description: String,
   date: { type: Date, required: true },
@@ -21,5 +25,6 @@ const expenseSchema = new Schema<IExpenseDocument>({
 expenseSchema.index({ userId: 1, petId: 1 });
 expenseSchema.index({ userId: 1, date: -1 });
 expenseSchema.index({ userId: 1, category: 1 });
+expenseSchema.index({ userId: 1, baseCurrency: 1 });
 
 export const ExpenseModel = model<IExpenseDocument>('Expense', expenseSchema);
