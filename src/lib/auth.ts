@@ -25,6 +25,8 @@ const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 const appleClientId = process.env.APPLE_CLIENT_ID;
 const appleClientSecret = process.env.APPLE_CLIENT_SECRET;
+const facebookClientId = process.env.FACEBOOK_CLIENT_ID;
+const facebookClientSecret = process.env.FACEBOOK_CLIENT_SECRET;
 
 export const auth: ReturnType<typeof betterAuth> = betterAuth({
   database: mongodbAdapter(db, {
@@ -51,6 +53,14 @@ export const auth: ReturnType<typeof betterAuth> = betterAuth({
           },
         }
       : {}),
+    ...(facebookClientId && facebookClientSecret
+      ? {
+          facebook: {
+            clientId: facebookClientId,
+            clientSecret: facebookClientSecret,
+          },
+        }
+      : {}),
   },
   // Enhanced trustedOrigins with mobile app support
   trustedOrigins: [
@@ -59,7 +69,7 @@ export const auth: ReturnType<typeof betterAuth> = betterAuth({
     'capacitor://localhost',
     'petopia://',
     'petopia-petcare://',
-    "petopia-petcare:///",  // iOS style
+    'petopia-petcare:///', // iOS style
     'https://appleid.apple.com',
     // Expo development URLs with wildcards
     ...(process.env.NODE_ENV === 'development'
@@ -67,7 +77,7 @@ export const auth: ReturnType<typeof betterAuth> = betterAuth({
       : []),
   ],
   emailAndPassword: {
-    enabled: true,
+    enabled: false,
   },
 
   // Add Expo plugin for mobile support

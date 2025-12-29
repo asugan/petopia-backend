@@ -8,7 +8,7 @@ MongoDB.
 - **Express.js v5** REST API server
 - **TypeScript** for type safety
 - **MongoDB** database with **Mongoose** ODM
-- **Better-Auth** authentication with social providers (Google, Apple)
+- **Better-Auth** authentication with social providers (Google, Apple, Facebook)
 - **Mobile-first** design with Expo/React Native support
 - **Security middleware** (Helmet, CORS, Rate Limiting)
 - **Request validation** with Zod
@@ -48,6 +48,7 @@ cp .env.example .env
 ```
 
 Required environment variables:
+
 - `MONGODB_URI` - MongoDB connection string
 - `BETTER_AUTH_SECRET` - Secret key for authentication
 - `BETTER_AUTH_URL` - Base URL for auth redirects
@@ -55,6 +56,8 @@ Required environment variables:
 - `GOOGLE_CLIENT_SECRET` - Google OAuth client secret (optional)
 - `APPLE_CLIENT_ID` - Apple Sign In client ID (optional)
 - `APPLE_CLIENT_SECRET` - Apple Sign In client secret (optional)
+- `FACEBOOK_CLIENT_ID` - Facebook App ID (optional)
+- `FACEBOOK_CLIENT_SECRET` - Facebook App Secret (optional)
 
 4. Set up the database (optional - seed with test data):
 
@@ -98,11 +101,11 @@ The server will start on `http://localhost:3000`
 ### Authentication (Better-Auth)
 
 All endpoints under `/api/auth/*` are handled by Better-Auth:
-- Email/Password sign up & sign in
+
 - Google Sign In
 - Apple Sign In
+- Facebook Login
 - Session management
-- Password reset
 
 ### Pets
 
@@ -190,19 +193,21 @@ scripts/                  # Database utility scripts (seed, clean, status, index
 
 ## Environment Variables
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `NODE_ENV` | Environment (development/production) | No |
-| `PORT` | Server port (default: 3000) | No |
-| `MONGODB_URI` | MongoDB connection string | Yes |
-| `BETTER_AUTH_SECRET` | Secret key for authentication | Yes |
-| `BETTER_AUTH_URL` | Base URL for auth redirects | Yes |
-| `GOOGLE_CLIENT_ID` | Google OAuth client ID | No* |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret | No* |
-| `APPLE_CLIENT_ID` | Apple Sign In client ID | No* |
-| `APPLE_CLIENT_SECRET` | Apple Sign In client secret | No* |
+| Variable                 | Description                          | Required |
+| ------------------------ | ------------------------------------ | -------- |
+| `NODE_ENV`               | Environment (development/production) | No       |
+| `PORT`                   | Server port (default: 3000)          | No       |
+| `MONGODB_URI`            | MongoDB connection string            | Yes      |
+| `BETTER_AUTH_SECRET`     | Secret key for authentication        | Yes      |
+| `BETTER_AUTH_URL`        | Base URL for auth redirects          | Yes      |
+| `GOOGLE_CLIENT_ID`       | Google OAuth client ID               | No\*     |
+| `GOOGLE_CLIENT_SECRET`   | Google OAuth client secret           | No\*     |
+| `APPLE_CLIENT_ID`        | Apple Sign In client ID              | No\*     |
+| `APPLE_CLIENT_SECRET`    | Apple Sign In client secret          | No\*     |
+| `FACEBOOK_CLIENT_ID`     | Facebook App ID                      | No\*     |
+| `FACEBOOK_CLIENT_SECRET` | Facebook App Secret                  | No\*     |
 
-*Required for social login features
+\*Required for social login features
 
 ## Testing
 
@@ -241,7 +246,8 @@ npm run test:coverage
 
 ### Test Environment
 
-Set `MONGODB_TEST_URI` environment variable for test database (defaults to `MONGODB_URI` if not set).
+Set `MONGODB_TEST_URI` environment variable for test database (defaults to `MONGODB_URI` if not
+set).
 
 ```bash
 # .env.test
@@ -306,8 +312,8 @@ npm run db:generate-indexes
 ### Authentication
 
 Authentication is handled by **Better-Auth** with the following features:
-- Email/Password authentication
-- Social providers (Google, Apple)
+
+- Social providers (Google, Apple, Facebook)
 - Session-based authentication (7-day expiration)
 - Mobile app support via Expo plugin
 - Rate limiting stored in MongoDB
