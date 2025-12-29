@@ -1,6 +1,7 @@
 import { HydratedDocument, Types } from 'mongoose';
 import { ExpenseModel, IUserBudgetDocument, UserBudgetModel } from '../models/mongoose';
 import { SetUserBudgetInput } from '../types/api';
+import { UserSettingsService } from './userSettingsService';
 
 
 // Budget status interface with pet breakdown
@@ -57,6 +58,12 @@ interface MonthlyExpenseAggregate {
 }
 
 export class UserBudgetService {
+  private userSettingsService: UserSettingsService;
+
+  constructor() {
+    this.userSettingsService = new UserSettingsService();
+  }
+
   /**
    * Get budget by userId (sadece bir record dönecek)
    */
@@ -77,9 +84,7 @@ export class UserBudgetService {
       throw new Error('Budget amount must be greater than 0');
     }
 
-    if (!data.currency || data.currency.trim() === '') {
-      throw new Error('Currency is required');
-    }
+    const baseCurrency = await this.userSettingsService.getUserBaseCurrency(userId);
 
     // Check if budget already exists for this user
     const existingBudget = await this.getBudgetByUserId(userId);
@@ -88,7 +93,7 @@ export class UserBudgetService {
       // Update existing budget
       const updatedBudgetData = {
         amount: data.amount,
-        currency: data.currency,
+        currency: baseCurrency,
         alertThreshold: data.alertThreshold ?? 0.8,
         isActive: data.isActive ?? true,
         updatedAt: new Date(),
@@ -110,7 +115,7 @@ export class UserBudgetService {
       const newBudget = new UserBudgetModel({
         userId,
         amount: data.amount,
-        currency: data.currency,
+        currency: baseCurrency,
         alertThreshold: data.alertThreshold ?? 0.8,
         isActive: data.isActive ?? true,
       });
@@ -142,6 +147,10 @@ export class UserBudgetService {
       return null;
     }
 
+    const baseCurrency = await this.userSettingsService.getUserBaseCurrency(userId);
+
+    budget.currency = baseCurrency;
+
     const now = new Date();
     const startDate = new Date(now.getFullYear(), now.getMonth(), 1);
     const endDate = new Date(
@@ -169,7 +178,7 @@ export class UserBudgetService {
       {
         $match: {
           userId: new Types.ObjectId(userId),
-          baseCurrency: budget.currency,
+          baseCurrency,
           date: {
             $gte: startDate,
             $lte: endDate
@@ -201,7 +210,7 @@ export class UserBudgetService {
       {
         $match: {
           userId: new Types.ObjectId(userId),
-          baseCurrency: budget.currency,
+          baseCurrency,
           date: {
             $gte: prevStartDate,
             $lte: prevEndDate

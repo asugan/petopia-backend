@@ -1,5 +1,5 @@
 import { HydratedDocument } from 'mongoose';
-import { ExpenseModel, IUserSettingsDocument, UserSettingsModel } from '../models/mongoose';
+import { ExpenseModel, IUserSettingsDocument, UserBudgetModel, UserSettingsModel } from '../models/mongoose';
 import { ExchangeRateService } from './exchangeRateService';
 
 interface UpdateUserSettingsInput {
@@ -70,11 +70,17 @@ export class UserSettingsService {
     }
 
     const existing = await UserSettingsModel.findOne({ userId }).exec();
-    if (existing?.baseCurrency === baseCurrency) {
-      return existing;
+    const previousBaseCurrency = existing?.baseCurrency ?? 'TRY';
+    if (previousBaseCurrency === baseCurrency) {
+      if (existing) {
+        return existing;
+      }
+      const newSettings = new UserSettingsModel({ userId, baseCurrency });
+      return await newSettings.save();
     }
 
     await this.recalculateExpenseBaseCurrency(userId, baseCurrency);
+    await this.syncUserBudgetCurrency(userId, previousBaseCurrency, baseCurrency);
 
     if (!existing) {
       const newSettings = new UserSettingsModel({ userId, baseCurrency });
@@ -100,6 +106,34 @@ export class UserSettingsService {
       return 'TRY';
     }
     return settings.baseCurrency;
+  }
+
+  private async syncUserBudgetCurrency(
+    userId: string,
+    previousBaseCurrency: 'TRY' | 'USD' | 'EUR' | 'GBP',
+    nextBaseCurrency: 'TRY' | 'USD' | 'EUR' | 'GBP'
+  ): Promise<void> {
+    const budget = await UserBudgetModel.findOne({ userId }).exec();
+    if (!budget) {
+      return;
+    }
+
+    const fromCurrency = (budget.currency as typeof previousBaseCurrency) ?? previousBaseCurrency;
+    const amount = budget.amount ?? 0;
+
+    if (fromCurrency === nextBaseCurrency) {
+      budget.currency = nextBaseCurrency;
+      await budget.save();
+      return;
+    }
+
+    const rate = await this.exchangeRateService.getRate(fromCurrency, nextBaseCurrency);
+    if (rate !== null) {
+      budget.amount = this.round(amount * rate);
+    }
+
+    budget.currency = nextBaseCurrency;
+    await budget.save();
   }
 
   private async recalculateExpenseBaseCurrency(
