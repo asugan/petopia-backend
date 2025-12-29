@@ -1,4 +1,4 @@
-import { HydratedDocument, UpdateQuery } from 'mongoose';
+import { HydratedDocument, Types, UpdateQuery } from 'mongoose';
 import { ExpenseModel, IExpenseDocument, PetModel } from '../models/mongoose';
 import { ExpenseQueryParams } from '../types/api';
 import { ExchangeRateService } from './exchangeRateService';
@@ -9,8 +9,8 @@ const exchangeRateService = new ExchangeRateService();
 const userSettingsService = new UserSettingsService();
 
 interface ExpenseFilter {
-  userId: string;
-  petId?: string;
+  userId: Types.ObjectId;
+  petId?: Types.ObjectId;
   category?: string;
   currency?: string;
   paymentMethod?: string;
@@ -38,10 +38,10 @@ export class ExpenseService {
     } = params ?? {};
     const offset = (page - 1) * limit;
 
-    const whereClause: ExpenseFilter = { userId };
+    const whereClause: ExpenseFilter = { userId: new Types.ObjectId(userId) };
 
     if (petId) {
-      whereClause.petId = petId;
+      whereClause.petId = new Types.ObjectId(petId);
     }
 
     if (category) {
@@ -219,10 +219,10 @@ export class ExpenseService {
     byCurrency: { currency: string; total: number }[];
   }> {
     const baseCurrency = await userSettingsService.getUserBaseCurrency(userId);
-    const whereClause: ExpenseFilter = { userId, baseCurrency };
+    const whereClause: ExpenseFilter = { userId: new Types.ObjectId(userId), baseCurrency };
 
     if (petId) {
-      whereClause.petId = petId;
+      whereClause.petId = new Types.ObjectId(petId);
     }
 
     if (startDate || endDate) {
@@ -336,10 +336,10 @@ export class ExpenseService {
     startDate?: Date,
     endDate?: Date
   ): Promise<string> {
-    const whereClause: ExpenseFilter = { userId };
-
+    const whereClause: ExpenseFilter = { userId: new Types.ObjectId(userId) };
+ 
     if (petId) {
-      whereClause.petId = petId;
+      whereClause.petId = new Types.ObjectId(petId);
     }
 
     if (startDate || endDate) {
@@ -407,10 +407,10 @@ export class ExpenseService {
     startDate?: Date,
     endDate?: Date
   ): Promise<Buffer> {
-    const whereClause: ExpenseFilter = { userId };
-
+    const whereClause: ExpenseFilter = { userId: new Types.ObjectId(userId) };
+ 
     if (petId) {
-      whereClause.petId = petId;
+      whereClause.petId = new Types.ObjectId(petId);
     }
 
     if (startDate || endDate) {
