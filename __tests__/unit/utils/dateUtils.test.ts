@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   createUTCDateFilter,
+  getUTCDateRangeForLocalDate,
   getUTCTodayBoundaries,
   getUTCUpcomingBoundaries,
   isUTCToday,
@@ -128,6 +129,24 @@ describe('dateUtils', () => {
       const result = getUTCUpcomingBoundaries(14);
       expect(result).toHaveProperty('gte');
       expect(result).toHaveProperty('lte');
+    });
+  });
+
+  describe('getUTCDateRangeForLocalDate', () => {
+    it('should compute UTC boundaries for UTC timezone', () => {
+      const range = getUTCDateRangeForLocalDate('2024-01-15', 'UTC');
+      expect(range.start.toISOString()).toBe('2024-01-15T00:00:00.000Z');
+      expect(range.end.toISOString()).toBe('2024-01-16T00:00:00.000Z');
+    });
+
+    it('should compute UTC boundaries for Europe/Istanbul (UTC+03)', () => {
+      const range = getUTCDateRangeForLocalDate('2024-01-15', 'Europe/Istanbul');
+      expect(range.start.toISOString()).toBe('2024-01-14T21:00:00.000Z');
+      expect(range.end.toISOString()).toBe('2024-01-15T21:00:00.000Z');
+    });
+
+    it('should throw for invalid date format', () => {
+      expect(() => getUTCDateRangeForLocalDate('2024/01/15', 'UTC')).toThrow();
     });
   });
 });

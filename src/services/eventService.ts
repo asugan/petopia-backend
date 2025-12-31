@@ -1,7 +1,8 @@
 import { HydratedDocument, QueryFilter, Types, UpdateQuery } from 'mongoose';
-import { EventModel, IEventDocument, PetModel } from '../models/mongoose';
+import { EventModel, IEventDocument, PetModel, UserSettingsModel } from '../models/mongoose';
 import { EventQueryParams } from '../types/api';
 import {
+  getUTCDateRangeForLocalDate,
   getUTCTodayBoundaries,
   getUTCUpcomingBoundaries,
   parseUTCDate,
@@ -67,18 +68,22 @@ export class EventService {
     const { page = 1, limit = 10, type } = params;
     const offset = (page - 1) * limit;
 
-    // Parse the date and get next day in UTC
-    const startDate = parseUTCDate(date);
-    const endDate = new Date(startDate);
-    endDate.setUTCDate(endDate.getUTCDate() + 1);
+    const settings = await UserSettingsModel.findOne({ userId })
+      .select({ timezone: 1 })
+      .lean()
+      .exec();
 
-    // Build where conditions using UTC boundaries
+    const { start, end } = getUTCDateRangeForLocalDate(
+      date,
+      settings?.timezone ?? 'UTC'
+    );
+
     const whereClause: QueryFilter<IEventDocument> = {
       userId: new Types.ObjectId(userId),
       startTime: {
-        $gte: startDate,
-        $lt: endDate
-      }
+        $gte: start,
+        $lt: end,
+      },
     };
 
     if (type) {
