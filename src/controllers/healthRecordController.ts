@@ -9,7 +9,6 @@ import {
 } from '../types/api';
 import { createError } from '../middleware/errorHandler';
 import { parseUTCDate } from '../lib/dateUtils';
-import { IHealthRecordDocument } from '../models/mongoose';
 
 export class HealthRecordController {
   private healthRecordService: HealthRecordService;
@@ -167,10 +166,7 @@ export class HealthRecordController {
         nextVisitDate,
       };
 
-      const record = await this.healthRecordService.createHealthRecord(
-        userId,
-        convertedRecordData as unknown as Partial<IHealthRecordDocument>
-      );
+      const record = await this.healthRecordService.createHealthRecord(userId, convertedRecordData);
       successResponse(res, record, 201);
     } catch (error) {
       next(error);
@@ -192,12 +188,14 @@ export class HealthRecordController {
         throw createError('Health record ID is required', 400, 'MISSING_ID');
       }
 
-      // Convert string dates to UTC Date objects
-      const nextVisitDate = updates.nextVisitDate
-        ? parseUTCDate(updates.nextVisitDate)
-        : undefined;
+      const nextVisitDate =
+        updates.nextVisitDate === null
+          ? null
+          : updates.nextVisitDate
+            ? parseUTCDate(updates.nextVisitDate)
+            : undefined;
 
-      if (nextVisitDate && nextVisitDate <= new Date()) {
+      if (nextVisitDate instanceof Date && nextVisitDate <= new Date()) {
         throw createError(
           'Next visit date must be in the future',
           400,
@@ -211,11 +209,7 @@ export class HealthRecordController {
         nextVisitDate,
       };
 
-      const record = await this.healthRecordService.updateHealthRecord(
-        userId,
-        id,
-        convertedUpdates as unknown as Partial<IHealthRecordDocument>
-      );
+      const record = await this.healthRecordService.updateHealthRecord(userId, id, convertedUpdates);
 
       if (!record) {
         throw createError(

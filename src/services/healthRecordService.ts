@@ -1,12 +1,77 @@
 import { HydratedDocument, QueryFilter, Types, UpdateQuery } from 'mongoose';
-import { HealthRecordModel, IHealthRecordDocument, PetModel, EventModel } from '../models/mongoose';
-import { HealthRecordQueryParams } from '../types/api';
+import {
+  EventModel,
+  HealthRecordModel,
+  type IEventDocument,
+  type IHealthRecordDocument,
+  PetModel,
+} from '../models/mongoose';
+import type { HealthRecordQueryParams } from '../types/api';
 import { parseUTCDate } from '../lib/dateUtils';
 
+export interface TreatmentPlanItem {
+  name: string;
+  dosage: string;
+  frequency: string;
+  duration?: string;
+  notes?: string;
+}
+
+export interface CreateHealthRecordData {
+  petId: string;
+  type: string;
+  title: string;
+  description?: string;
+  date: Date;
+  veterinarian?: string;
+  clinic?: string;
+  cost?: number;
+  notes?: string;
+  attachments?: string;
+  treatmentPlan?: TreatmentPlanItem[];
+  nextVisitDate?: Date;
+}
+
+export interface UpdateHealthRecordData {
+  type?: string;
+  title?: string;
+  description?: string;
+  date?: Date;
+  veterinarian?: string;
+  clinic?: string;
+  cost?: number;
+  notes?: string;
+  attachments?: string;
+  treatmentPlan?: TreatmentPlanItem[];
+  nextVisitDate?: Date | null;
+}
+
+type EventSnapshot = Pick<
+  IEventDocument,
+  | 'petId'
+  | 'title'
+  | 'description'
+  | 'type'
+  | 'startTime'
+  | 'endTime'
+  | 'location'
+  | 'notes'
+  | 'reminder'
+  | 'vaccineName'
+  | 'vaccineManufacturer'
+  | 'batchNumber'
+  | 'medicationName'
+  | 'dosage'
+  | 'frequency'
+>;
+
+const removeUndefinedValues = <T extends Record<string, unknown>>(obj: T): Partial<T> => {
+  return Object.fromEntries(
+    Object.entries(obj).filter(([, value]) => value !== undefined)
+  ) as Partial<T>;
+};
+
 export class HealthRecordService {
-  /**
-   * Get health records for a user, optionally filtered by petId
-   */
   async getHealthRecordsByPetId(
     userId: string,
     petId?: string,
@@ -15,8 +80,9 @@ export class HealthRecordService {
     const { page = 1, limit = 10, type, startDate, endDate } = params ?? {};
     const offset = (page - 1) * limit;
 
-    // Build where conditions - always filter by userId
-    const whereClause: QueryFilter<IHealthRecordDocument> = { userId: new Types.ObjectId(userId) };
+    const whereClause: QueryFilter<IHealthRecordDocument> = {
+      userId: new Types.ObjectId(userId),
+    };
 
     if (petId) {
       whereClause.petId = new Types.ObjectId(petId);
@@ -36,10 +102,8 @@ export class HealthRecordService {
       }
     }
 
-    // Get total count
     const total = await HealthRecordModel.countDocuments(whereClause);
 
-    // Get records with pagination
     const records = await HealthRecordModel.find(whereClause)
       .sort({ date: -1 })
       .limit(limit)
@@ -52,9 +116,6 @@ export class HealthRecordService {
     };
   }
 
-  /**
-   * Get health record by ID, ensuring it belongs to the user
-   */
   async getHealthRecordById(
     userId: string,
     id: string
@@ -63,106 +124,323 @@ export class HealthRecordService {
     return record ?? null;
   }
 
-  /**
-   * Create health record, ensuring the pet belongs to the user
-   */
+  private async createNextVisitEvent(
+    userId: string,
+    petId: string | Types.ObjectId,
+    healthRecordTitle: string,
+    nextVisitDate: Date
+  ): Promise<HydratedDocument<IEventDocument>> {
+    const [createdEvent] = await EventModel.create([
+      {
+        userId,
+        petId,
+        type: 'vet_visit',
+        title: `Next Visit: ${healthRecordTitle}`,
+        startTime: nextVisitDate,
+        reminder: true,
+        description: `Follow-up for ${healthRecordTitle}`,
+      },
+    ]);
+
+    if (!createdEvent) {
+      throw new Error('Failed to create next visit event');
+    }
+
+    return createdEvent;
+  }
+
   async createHealthRecord(
     userId: string,
-    recordData: Partial<IHealthRecordDocument> & { nextVisitDate?: Date }
+    recordData: CreateHealthRecordData
   ): Promise<HydratedDocument<IHealthRecordDocument>> {
-    // Verify pet exists and belongs to user
     const pet = await PetModel.findOne({ _id: recordData.petId, userId }).exec();
 
     if (!pet) {
       throw new Error('Pet not found');
     }
 
-    if (recordData.nextVisitDate) {
-      const nextVisitEvent = new EventModel({
-        userId,
-        petId: recordData.petId,
-        type: 'vet_visit',
-        title: `Next Visit: ${recordData.title}`,
-        startTime: recordData.nextVisitDate,
-        reminder: true,
-        description: `Follow-up for ${recordData.title}`,
-      });
-      
-      const savedEvent = await nextVisitEvent.save();
-      recordData.nextVisitEventId = savedEvent._id;
-      
-      delete recordData.nextVisitDate;
-    }
+    const { nextVisitDate, ...healthRecordFields } = recordData;
 
-    const newRecord = new HealthRecordModel({ ...recordData, userId });
-    const createdRecord = await newRecord.save();
+    let createdEventId: Types.ObjectId | undefined;
 
-    if (!createdRecord) {
-      throw new Error('Failed to create health record');
+    try {
+      if (nextVisitDate) {
+        const createdEvent = await this.createNextVisitEvent(
+          userId,
+          recordData.petId,
+          recordData.title,
+          nextVisitDate
+        );
+        createdEventId = createdEvent._id;
+      }
+
+      const [createdRecord] = await HealthRecordModel.create([
+        {
+          ...healthRecordFields,
+          userId,
+          ...(createdEventId ? { nextVisitEventId: createdEventId } : {}),
+        },
+      ]);
+
+      if (!createdRecord) {
+        throw new Error('Failed to create health record');
+      }
+
+      return createdRecord;
+    } catch (error) {
+      if (createdEventId) {
+        await EventModel.findOneAndDelete({ _id: createdEventId, userId })
+          .exec()
+          .catch(() => undefined);
+      }
+
+      throw error;
     }
-    return createdRecord;
   }
 
-  /**
-   * Update health record, ensuring it belongs to the user
-   */
   async updateHealthRecord(
     userId: string,
     id: string,
-    updates: Partial<IHealthRecordDocument> & { nextVisitDate?: Date }
+    updates: UpdateHealthRecordData
   ): Promise<HydratedDocument<IHealthRecordDocument> | null> {
-    const { nextVisitDate, ...safeUpdates } = updates;
-
     const existingRecord = await HealthRecordModel.findOne({ _id: id, userId }).exec();
     if (!existingRecord) {
       return null;
     }
 
-    if (nextVisitDate) {
-      if (existingRecord.nextVisitEventId) {
-        await EventModel.findOneAndUpdate(
-          { _id: existingRecord.nextVisitEventId, userId },
-          {
-            startTime: nextVisitDate,
-            title: `Next Visit: ${safeUpdates.title ?? existingRecord.title}`,
-            description: `Follow-up for ${safeUpdates.title ?? existingRecord.title}`,
-          },
-          { new: true }
-        ).exec();
-      } else {
-        const nextVisitEvent = new EventModel({
-          userId,
-          petId: existingRecord.petId,
-          type: 'vet_visit',
-          title: `Next Visit: ${safeUpdates.title ?? existingRecord.title}`,
-          startTime: nextVisitDate,
-          reminder: true,
-          description: `Follow-up for ${safeUpdates.title ?? existingRecord.title}`,
-        });
+    const { nextVisitDate, ...restUpdates } = updates;
 
-        const savedEvent = await nextVisitEvent.save();
-        safeUpdates.nextVisitEventId = savedEvent._id;
+    const updateQuery: UpdateQuery<IHealthRecordDocument> = removeUndefinedValues(
+      restUpdates as Record<string, unknown>
+    ) as UpdateQuery<IHealthRecordDocument>;
+
+    const baseTitle = restUpdates.title ?? existingRecord.title;
+    const eventTitle = `Next Visit: ${baseTitle}`;
+    const eventDescription = `Follow-up for ${baseTitle}`;
+
+    const linkedEventId = existingRecord.nextVisitEventId;
+
+    if (nextVisitDate === null && linkedEventId) {
+      const updatedRecord = await HealthRecordModel.findOneAndUpdate(
+        { _id: id, userId },
+        { ...updateQuery, $unset: { nextVisitEventId: 1 } },
+        { new: true }
+      ).exec();
+
+      if (!updatedRecord) {
+        return null;
       }
+
+      try {
+        await EventModel.findOneAndDelete({ _id: linkedEventId, userId }).exec();
+      } catch (error) {
+        await HealthRecordModel.findOneAndUpdate(
+          { _id: id, userId },
+          { nextVisitEventId: linkedEventId }
+        )
+          .exec()
+          .catch(() => undefined);
+
+        throw error;
+      }
+
+      return updatedRecord;
     }
 
-    const updatedRecord = await HealthRecordModel.findOneAndUpdate(
-      { _id: id, userId },
-      safeUpdates,
-      { new: true }
-    ).exec();
+    let createdEventId: Types.ObjectId | undefined;
+    let rollbackEvent:
+      | {
+          eventId: Types.ObjectId;
+          startTime: Date;
+          title: string;
+          description?: string;
+        }
+      | undefined;
 
-    return updatedRecord ?? null;
+    try {
+      if (nextVisitDate) {
+        if (linkedEventId) {
+          const previousEvent = await EventModel.findOne({ _id: linkedEventId, userId }).exec();
+
+          if (previousEvent) {
+            rollbackEvent = {
+              eventId: previousEvent._id,
+              startTime: previousEvent.startTime,
+              title: previousEvent.title,
+              description: previousEvent.description,
+            };
+
+            const updatedEvent = await EventModel.findOneAndUpdate(
+              { _id: previousEvent._id, userId },
+              {
+                startTime: nextVisitDate,
+                title: eventTitle,
+                description: eventDescription,
+              },
+              { new: true }
+            ).exec();
+
+            if (!updatedEvent) {
+              throw new Error('Failed to update next visit event');
+            }
+          } else {
+            const newEvent = await this.createNextVisitEvent(
+              userId,
+              existingRecord.petId,
+              baseTitle,
+              nextVisitDate
+            );
+            createdEventId = newEvent._id;
+            updateQuery.nextVisitEventId = newEvent._id;
+          }
+        } else {
+          const newEvent = await this.createNextVisitEvent(
+            userId,
+            existingRecord.petId,
+            baseTitle,
+            nextVisitDate
+          );
+          createdEventId = newEvent._id;
+          updateQuery.nextVisitEventId = newEvent._id;
+        }
+      } else if (restUpdates.title !== undefined && linkedEventId) {
+        const previousEvent = await EventModel.findOne({ _id: linkedEventId, userId }).exec();
+
+        if (previousEvent) {
+          rollbackEvent = {
+            eventId: previousEvent._id,
+            startTime: previousEvent.startTime,
+            title: previousEvent.title,
+            description: previousEvent.description,
+          };
+
+          const updatedEvent = await EventModel.findOneAndUpdate(
+            { _id: previousEvent._id, userId },
+            {
+              title: eventTitle,
+              description: eventDescription,
+            },
+            { new: true }
+          ).exec();
+
+          if (!updatedEvent) {
+            throw new Error('Failed to update next visit event');
+          }
+        }
+      }
+
+      const updatedRecord = await HealthRecordModel.findOneAndUpdate(
+        { _id: id, userId },
+        updateQuery,
+        { new: true }
+      ).exec();
+
+      return updatedRecord ?? null;
+    } catch (error) {
+      if (createdEventId) {
+        await EventModel.findOneAndDelete({ _id: createdEventId, userId })
+          .exec()
+          .catch(() => undefined);
+      }
+
+      if (rollbackEvent) {
+        await EventModel.findOneAndUpdate(
+          { _id: rollbackEvent.eventId, userId },
+          {
+            startTime: rollbackEvent.startTime,
+            title: rollbackEvent.title,
+            description: rollbackEvent.description,
+          }
+        )
+          .exec()
+          .catch(() => undefined);
+      }
+
+      throw error;
+    }
   }
 
-  /**
-   * Delete health record, ensuring it belongs to the user
-   */
   async deleteHealthRecord(userId: string, id: string): Promise<boolean> {
-    const deletedRecord = await HealthRecordModel.findOneAndDelete({ _id: id, userId }).exec();
-    return !!deletedRecord;
-  }
+    const existingRecord = await HealthRecordModel.findOne({ _id: id, userId }).exec();
 
-  /**
-   * Health records are historical, so no upcoming queries live here.
-   */
+    if (!existingRecord) {
+      return false;
+    }
+
+    const linkedEventId = existingRecord.nextVisitEventId;
+
+    let linkedEventSnapshot: EventSnapshot | undefined;
+
+    if (linkedEventId) {
+      const linkedEvent = await EventModel.findOne({ _id: linkedEventId, userId }).exec();
+
+      if (linkedEvent) {
+        linkedEventSnapshot = {
+          petId: linkedEvent.petId,
+          title: linkedEvent.title,
+          description: linkedEvent.description,
+          type: linkedEvent.type,
+          startTime: linkedEvent.startTime,
+          endTime: linkedEvent.endTime,
+          location: linkedEvent.location,
+          notes: linkedEvent.notes,
+          reminder: linkedEvent.reminder,
+          vaccineName: linkedEvent.vaccineName,
+          vaccineManufacturer: linkedEvent.vaccineManufacturer,
+          batchNumber: linkedEvent.batchNumber,
+          medicationName: linkedEvent.medicationName,
+          dosage: linkedEvent.dosage,
+          frequency: linkedEvent.frequency,
+        };
+      }
+
+      await EventModel.findOneAndDelete({ _id: linkedEventId, userId }).exec();
+    }
+
+    try {
+      const deletedRecord = await HealthRecordModel.findOneAndDelete({ _id: id, userId }).exec();
+
+      if (!deletedRecord) {
+        if (linkedEventSnapshot) {
+          const [restoredEvent] = await EventModel.create([
+            {
+              ...linkedEventSnapshot,
+              userId,
+            },
+          ]);
+
+          if (restoredEvent) {
+            await HealthRecordModel.findOneAndUpdate(
+              { _id: id, userId },
+              { nextVisitEventId: restoredEvent._id }
+            ).exec();
+          }
+        }
+
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      if (linkedEventSnapshot) {
+        const [restoredEvent] = await EventModel.create([
+          {
+            ...linkedEventSnapshot,
+            userId,
+          },
+        ]);
+
+        if (restoredEvent) {
+          await HealthRecordModel.findOneAndUpdate(
+            { _id: id, userId },
+            { nextVisitEventId: restoredEvent._id }
+          )
+            .exec()
+            .catch(() => undefined);
+        }
+      }
+
+      throw error;
+    }
+  }
 }

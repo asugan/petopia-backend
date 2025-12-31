@@ -37,7 +37,18 @@ const createHealthRecordSchema = z.object({
   nextVisitDate: z.string().datetime('Invalid next visit date format').optional(),
 });
 
-const updateHealthRecordSchema = createHealthRecordSchema.partial();
+const updateHealthRecordSchema = createHealthRecordSchema
+  .omit({ petId: true })
+  .partial()
+  .extend({
+    // Allow explicit clearing of next visit (unlink + delete linked Event)
+    nextVisitDate: z
+      .union([
+        z.string().datetime('Invalid next visit date format'),
+        z.null(),
+      ])
+      .optional(),
+  });
 
 // GET / - If called as /api/health-records, use getAllHealthRecords (accepts petId as query param)
 // GET / - If called as /api/pets/:petId/health-records, use getHealthRecordsByPetId (gets petId from params)
