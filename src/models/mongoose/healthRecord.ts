@@ -13,6 +13,14 @@ const healthRecordSchema = new Schema<IHealthRecordDocument>({
   cost: Number,
   notes: String,
   attachments: String,
+  treatmentPlan: [{
+    name: { type: String, required: true },
+    dosage: { type: String, required: true },
+    frequency: { type: String, required: true },
+    duration: String,
+    notes: String
+  }],
+  nextVisitEventId: { type: Schema.Types.ObjectId, ref: 'Event' },
 }, {
   timestamps: true
 });

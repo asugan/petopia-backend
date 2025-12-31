@@ -63,6 +63,14 @@ export interface CreateHealthRecordRequest {
   cost?: number;
   notes?: string;
   attachments?: string;
+  treatmentPlan?: Array<{
+    name: string;
+    dosage: string;
+    frequency: string;
+    duration?: string;
+    notes?: string;
+  }>;
+  nextVisitDate?: string;
 }
 
 export interface UpdateHealthRecordRequest {
@@ -75,6 +83,14 @@ export interface UpdateHealthRecordRequest {
   cost?: number;
   notes?: string;
   attachments?: string;
+  treatmentPlan?: Array<{
+    name: string;
+    dosage: string;
+    frequency: string;
+    duration?: string;
+    notes?: string;
+  }>;
+  nextVisitDate?: string;
 }
 
 export interface CreateEventRequest {

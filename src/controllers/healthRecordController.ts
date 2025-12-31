@@ -149,9 +149,22 @@ export class HealthRecordController {
       }
 
       // Convert string dates to UTC Date objects
+      const nextVisitDate = recordData.nextVisitDate
+        ? parseUTCDate(recordData.nextVisitDate)
+        : undefined;
+
+      if (nextVisitDate && nextVisitDate <= new Date()) {
+        throw createError(
+          'Next visit date must be in the future',
+          400,
+          'INVALID_NEXT_VISIT_DATE'
+        );
+      }
+
       const convertedRecordData = {
         ...recordData,
         date: parseUTCDate(recordData.date),
+        nextVisitDate,
       };
 
       const record = await this.healthRecordService.createHealthRecord(
@@ -180,9 +193,22 @@ export class HealthRecordController {
       }
 
       // Convert string dates to UTC Date objects
+      const nextVisitDate = updates.nextVisitDate
+        ? parseUTCDate(updates.nextVisitDate)
+        : undefined;
+
+      if (nextVisitDate && nextVisitDate <= new Date()) {
+        throw createError(
+          'Next visit date must be in the future',
+          400,
+          'INVALID_NEXT_VISIT_DATE'
+        );
+      }
+
       const convertedUpdates = {
         ...updates,
         date: updates.date ? parseUTCDate(updates.date) : undefined,
+        nextVisitDate,
       };
 
       const record = await this.healthRecordService.updateHealthRecord(

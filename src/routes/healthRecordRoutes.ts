@@ -27,6 +27,14 @@ const createHealthRecordSchema = z.object({
   cost: z.number().nonnegative().optional(),
   notes: z.string().optional(),
   attachments: z.string().optional(),
+  treatmentPlan: z.array(z.object({
+    name: z.string().min(1, 'Treatment name is required'),
+    dosage: z.string().min(1, 'Dosage is required'),
+    frequency: z.string().min(1, 'Frequency is required'),
+    duration: z.string().optional(),
+    notes: z.string().optional(),
+  })).optional(),
+  nextVisitDate: z.string().datetime('Invalid next visit date format').optional(),
 });
 
 const updateHealthRecordSchema = createHealthRecordSchema.partial();

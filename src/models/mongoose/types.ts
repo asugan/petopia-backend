@@ -37,6 +37,14 @@ export interface IPetDocument extends Document {
 }
 
 // Health Record Document Interface
+export interface ITreatmentPlanItem {
+  name: string;
+  dosage: string;
+  frequency: string;
+  duration?: string;
+  notes?: string;
+}
+
 export interface IHealthRecordDocument extends Document {
   _id: Types.ObjectId;
   userId: Types.ObjectId;
@@ -50,6 +58,8 @@ export interface IHealthRecordDocument extends Document {
   cost?: number;
   notes?: string;
   attachments?: string;
+  treatmentPlan?: ITreatmentPlanItem[];
+  nextVisitEventId?: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }

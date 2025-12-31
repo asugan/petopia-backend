@@ -1,5 +1,5 @@
 import { HydratedDocument, QueryFilter, Types, UpdateQuery } from 'mongoose';
-import { HealthRecordModel, IHealthRecordDocument, PetModel } from '../models/mongoose';
+import { HealthRecordModel, IHealthRecordDocument, PetModel, EventModel } from '../models/mongoose';
 import { HealthRecordQueryParams } from '../types/api';
 import { parseUTCDate } from '../lib/dateUtils';
 
@@ -68,13 +68,30 @@ export class HealthRecordService {
    */
   async createHealthRecord(
     userId: string,
-    recordData: Partial<IHealthRecordDocument>
+    recordData: Partial<IHealthRecordDocument> & { nextVisitDate?: Date }
   ): Promise<HydratedDocument<IHealthRecordDocument>> {
     // Verify pet exists and belongs to user
     const pet = await PetModel.findOne({ _id: recordData.petId, userId }).exec();
 
     if (!pet) {
       throw new Error('Pet not found');
+    }
+
+    if (recordData.nextVisitDate) {
+      const nextVisitEvent = new EventModel({
+        userId,
+        petId: recordData.petId,
+        type: 'vet_visit',
+        title: `Next Visit: ${recordData.title}`,
+        startTime: recordData.nextVisitDate,
+        reminder: true,
+        description: `Follow-up for ${recordData.title}`,
+      });
+      
+      const savedEvent = await nextVisitEvent.save();
+      recordData.nextVisitEventId = savedEvent._id;
+      
+      delete recordData.nextVisitDate;
     }
 
     const newRecord = new HealthRecordModel({ ...recordData, userId });
@@ -92,10 +109,41 @@ export class HealthRecordService {
   async updateHealthRecord(
     userId: string,
     id: string,
-    updates: UpdateQuery<IHealthRecordDocument>
+    updates: Partial<IHealthRecordDocument> & { nextVisitDate?: Date }
   ): Promise<HydratedDocument<IHealthRecordDocument> | null> {
-    // Don't allow updating userId
-    const { ...safeUpdates } = updates;
+    const { nextVisitDate, ...safeUpdates } = updates;
+
+    const existingRecord = await HealthRecordModel.findOne({ _id: id, userId }).exec();
+    if (!existingRecord) {
+      return null;
+    }
+
+    if (nextVisitDate) {
+      if (existingRecord.nextVisitEventId) {
+        await EventModel.findOneAndUpdate(
+          { _id: existingRecord.nextVisitEventId, userId },
+          {
+            startTime: nextVisitDate,
+            title: `Next Visit: ${safeUpdates.title ?? existingRecord.title}`,
+            description: `Follow-up for ${safeUpdates.title ?? existingRecord.title}`,
+          },
+          { new: true }
+        ).exec();
+      } else {
+        const nextVisitEvent = new EventModel({
+          userId,
+          petId: existingRecord.petId,
+          type: 'vet_visit',
+          title: `Next Visit: ${safeUpdates.title ?? existingRecord.title}`,
+          startTime: nextVisitDate,
+          reminder: true,
+          description: `Follow-up for ${safeUpdates.title ?? existingRecord.title}`,
+        });
+
+        const savedEvent = await nextVisitEvent.save();
+        safeUpdates.nextVisitEventId = savedEvent._id;
+      }
+    }
 
     const updatedRecord = await HealthRecordModel.findOneAndUpdate(
       { _id: id, userId },
