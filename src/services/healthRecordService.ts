@@ -254,8 +254,7 @@ export class HealthRecordService {
     ) as UpdateQuery<IHealthRecordDocument>;
 
     if (cost !== undefined || currency !== undefined) {
-      const existingBaseCurrency = existingRecord.baseCurrency;
-      const baseCurrency = existingBaseCurrency ?? await userSettingsService.getUserBaseCurrency(userId);
+      const baseCurrency = await userSettingsService.getUserBaseCurrency(userId);
       const recordCurrency = currency ?? existingRecord.currency ?? baseCurrency;
       const recordCost = cost ?? existingRecord.cost;
 
@@ -290,8 +289,13 @@ export class HealthRecordService {
           fxRate: 1,
           fxAsOf: 1,
         };
-        updateQuery.currency = undefined;
-        updateQuery.baseCurrency = undefined;
+        if (currency !== undefined) {
+          updateQuery.currency = recordCurrency;
+          updateQuery.baseCurrency = baseCurrency;
+        } else {
+          updateQuery.currency = undefined;
+          updateQuery.baseCurrency = undefined;
+        }
       }
     }
 

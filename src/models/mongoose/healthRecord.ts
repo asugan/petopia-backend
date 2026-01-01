@@ -11,7 +11,7 @@ const healthRecordSchema = new Schema<IHealthRecordDocument>({
   veterinarian: String,
   clinic: String,
   cost: Number,
-  currency: { type: String, default: 'TRY' },
+  currency: { type: String },
   baseCurrency: { type: String, index: true },
   amountBase: { type: Number, index: true },
   fxRate: { type: Number },
