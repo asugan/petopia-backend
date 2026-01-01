@@ -56,6 +56,11 @@ export interface IHealthRecordDocument extends Document {
   veterinarian?: string;
   clinic?: string;
   cost?: number;
+  currency?: string;
+  baseCurrency?: string;
+  amountBase?: number;
+  fxRate?: number;
+  fxAsOf?: Date;
   notes?: string;
   attachments?: string;
   treatmentPlan?: ITreatmentPlanItem[];

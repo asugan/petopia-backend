@@ -8,6 +8,11 @@ import {
 } from '../models/mongoose';
 import type { HealthRecordQueryParams } from '../types/api';
 import { parseUTCDate } from '../lib/dateUtils';
+import { ExchangeRateService } from './exchangeRateService';
+import { UserSettingsService } from './userSettingsService';
+
+const exchangeRateService = new ExchangeRateService();
+const userSettingsService = new UserSettingsService();
 
 export interface TreatmentPlanItem {
   name: string;
@@ -26,6 +31,7 @@ export interface CreateHealthRecordData {
   veterinarian?: string;
   clinic?: string;
   cost?: number;
+  currency?: string;
   notes?: string;
   attachments?: string;
   treatmentPlan?: TreatmentPlanItem[];
@@ -40,6 +46,7 @@ export interface UpdateHealthRecordData {
   veterinarian?: string;
   clinic?: string;
   cost?: number;
+  currency?: string;
   notes?: string;
   attachments?: string;
   treatmentPlan?: TreatmentPlanItem[];
@@ -159,9 +166,37 @@ export class HealthRecordService {
       throw new Error('Pet not found');
     }
 
-    const { nextVisitDate, ...healthRecordFields } = recordData;
+    const { nextVisitDate, cost, ...healthRecordFields } = recordData;
 
     let createdEventId: Types.ObjectId | undefined;
+
+    // Handle currency conversion for cost
+    const healthRecordData: Record<string, unknown> = { ...healthRecordFields };
+
+    if (cost !== undefined) {
+      const baseCurrency = await userSettingsService.getUserBaseCurrency(userId);
+      const recordCurrency = recordData.currency ?? baseCurrency;
+      
+      healthRecordData.cost = cost; // Save original cost
+      healthRecordData.currency = recordCurrency;
+      healthRecordData.baseCurrency = baseCurrency;
+
+      if (recordCurrency === baseCurrency) {
+        healthRecordData.amountBase = cost;
+        healthRecordData.fxRate = 1;
+        healthRecordData.fxAsOf = new Date();
+      } else {
+        const rate = await exchangeRateService.getRate(recordCurrency, baseCurrency);
+        
+        if (rate === null) {
+          throw new Error('Exchange rate not available for currency conversion');
+        }
+
+        healthRecordData.amountBase = this.round(cost * rate);
+        healthRecordData.fxRate = rate;
+        healthRecordData.fxAsOf = new Date();
+      }
+    }
 
     try {
       if (nextVisitDate) {
@@ -172,13 +207,13 @@ export class HealthRecordService {
           nextVisitDate
         );
         createdEventId = createdEvent._id;
+        healthRecordData.nextVisitEventId = createdEventId;
       }
 
       const [createdRecord] = await HealthRecordModel.create([
         {
-          ...healthRecordFields,
+          ...healthRecordData,
           userId,
-          ...(createdEventId ? { nextVisitEventId: createdEventId } : {}),
         },
       ]);
 
@@ -208,11 +243,53 @@ export class HealthRecordService {
       return null;
     }
 
-    const { nextVisitDate, ...restUpdates } = updates;
+    const { nextVisitDate, cost, currency, ...restUpdates } = updates;
 
     const updateQuery: UpdateQuery<IHealthRecordDocument> = removeUndefinedValues(
       restUpdates as Record<string, unknown>
     ) as UpdateQuery<IHealthRecordDocument>;
+
+    if (cost !== undefined || currency !== undefined) {
+      const existingBaseCurrency = existingRecord.baseCurrency;
+      const baseCurrency = existingBaseCurrency ?? await userSettingsService.getUserBaseCurrency(userId);
+      const recordCurrency = currency ?? existingRecord.currency ?? baseCurrency;
+      const recordCost = cost ?? existingRecord.cost;
+
+      if (recordCost !== undefined && recordCost !== null) {
+        updateQuery.cost = recordCost; // Save original cost
+        updateQuery.currency = recordCurrency;
+        updateQuery.baseCurrency = baseCurrency;
+
+        if (recordCurrency === baseCurrency) {
+          updateQuery.amountBase = recordCost;
+          updateQuery.fxRate = 1;
+          updateQuery.fxAsOf = new Date();
+        } else {
+          const rate = await exchangeRateService.getRate(recordCurrency, baseCurrency);
+          
+          if (rate === null) {
+            throw new Error('Exchange rate not available for currency conversion');
+          }
+
+          if (rate <= 0 || !isFinite(rate)) {
+            throw new Error('Invalid exchange rate');
+          }
+
+          updateQuery.amountBase = this.round(recordCost * rate);
+          updateQuery.fxRate = rate;
+          updateQuery.fxAsOf = new Date();
+        }
+      } else {
+        updateQuery.$unset = {
+          ...(updateQuery.$unset || {}),
+          amountBase: 1,
+          fxRate: 1,
+          fxAsOf: 1,
+        };
+        updateQuery.currency = undefined;
+        updateQuery.baseCurrency = undefined;
+      }
+    }
 
     const baseTitle = restUpdates.title ?? existingRecord.title;
     const eventTitle = `Next Visit: ${baseTitle}`;
@@ -442,5 +519,10 @@ export class HealthRecordService {
 
       throw error;
     }
+  }
+
+  private round(value: number, decimals = 2): number {
+    const factor = Math.pow(10, decimals);
+    return Math.round(value * factor) / factor;
   }
 }
