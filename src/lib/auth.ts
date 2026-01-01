@@ -79,11 +79,15 @@ export const auth: ReturnType<typeof betterAuth> = betterAuth({
   emailAndPassword: {
     enabled: false,
   },
+  user: {
+    deleteUser: {
+      enabled: true,
+    },
+  },
 
   // Add Expo plugin for mobile support
   plugins: [
     expo(),
-    // Your existing plugins (apiKey, admin, etc.)
   ],
   rateLimit: {
     storage: 'database', // Uses MongoDB for rate limiting storage

@@ -8,6 +8,7 @@ import expenseRoutes from './expenseRoutes';
 import userBudgetRoutes from './userBudgetRoutes';
 import userSettingsRoutes from './userSettingsRoutes';
 import subscriptionRoutes from './subscriptionRoutes';
+import accountRoutes from './accountRoutes';
 import { WebhookController } from '../controllers/webhookController';
 
 const router = Router();
@@ -28,6 +29,7 @@ router.use('/expenses', expenseRoutes);
 router.use('/budget', userBudgetRoutes);
 router.use('/settings', userSettingsRoutes);
 router.use('/subscription', subscriptionRoutes);
+router.use('/account', accountRoutes);
 
 // Pet-specific nested routes
 router.use('/pets/:petId/health-records', healthRecordRoutes);
