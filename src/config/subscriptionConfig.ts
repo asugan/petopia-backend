@@ -27,7 +27,7 @@ export type SubscriptionTier =
 
 export const SUBSCRIPTION_CONFIG = {
   /** Trial duration in days */
-  TRIAL_DURATION_DAYS: 3,
+  TRIAL_DURATION_DAYS: 14,
 
   /** Providers */
   PROVIDERS: SUBSCRIPTION_PROVIDERS,
