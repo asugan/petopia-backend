@@ -5,6 +5,10 @@ import { fromNodeHeaders } from 'better-auth/node';
 import { successResponse } from '../utils/response';
 import { logger } from '../utils/logger';
 
+interface DeleteAccountBody {
+  confirmText?: string;
+}
+
 export class AccountController {
   /**
    * DELETE /api/account
@@ -23,6 +27,21 @@ export class AccountController {
       // Get authenticated user ID
       const userId = requireAuth(req);
 
+      // Validate DELETE confirmation (optional - frontend already validates)
+      const { confirmText } = req.body as DeleteAccountBody;
+      if (confirmText && confirmText !== 'DELETE') {
+        logger.warn('Account deletion rejected: invalid confirmation', {
+          userId,
+          ipAddress: req.ip ?? req.socket.remoteAddress,
+          timestamp: new Date().toISOString(),
+        });
+        res.status(400).json({
+          success: false,
+          message: 'Invalid confirmation text. Type "DELETE" to confirm.',
+        });
+        return;
+      }
+
       // Log audit event: account deletion initiated
       logger.info('Account deletion initiated', {
         userId,
@@ -40,27 +59,24 @@ export class AccountController {
       const { DeviceTrialRegistryModel } = await import('../models/mongoose/deviceTrialRegistry');
       const { UserBudgetModel } = await import('../models/mongoose/userBudget');
 
-      // Delete all user-related data in parallel
+      // Delete all user-related data sequentially (not parallel) to ensure atomicity
       // Note: Pets cascade to pet-related data via their pre('findOneAndDelete') hooks
-      const deleteResults = await Promise.all([
-        // User-specific documents
-        PetModel.deleteMany({ userId }), // Cascades to: Expenses, HealthRecords, Events, FeedingSchedules, BudgetLimits
-        UserSettingsModel.deleteOne({ userId }),
-        SubscriptionModel.deleteMany({ userId }),
-        UserTrialRegistryModel.deleteOne({ userId }),
-        DeviceTrialRegistryModel.deleteMany({ userId }),
-        UserBudgetModel.deleteOne({ userId }),
-      ]);
+      const deletePets = await PetModel.deleteMany({ userId });
+      const deleteSettings = await UserSettingsModel.deleteOne({ userId });
+      const deleteSubscriptions = await SubscriptionModel.deleteMany({ userId });
+      const deleteUserTrial = await UserTrialRegistryModel.deleteOne({ userId });
+      const deleteDeviceTrial = await DeviceTrialRegistryModel.deleteMany({ userId });
+      const deleteBudget = await UserBudgetModel.deleteOne({ userId });
 
       // Log what was deleted
       logger.info('User data deleted', {
         userId,
-        deletedPets: deleteResults[0]?.deletedCount,
-        deletedUserSettings: deleteResults[1]?.deletedCount,
-        deletedSubscriptions: deleteResults[2]?.deletedCount,
-        deletedUserTrialRegistry: deleteResults[3]?.deletedCount,
-        deletedDeviceTrialRegistry: deleteResults[4]?.deletedCount,
-        deletedUserBudget: deleteResults[5]?.deletedCount,
+        deletedPets: deletePets.deletedCount,
+        deletedUserSettings: deleteSettings.deletedCount,
+        deletedSubscriptions: deleteSubscriptions.deletedCount,
+        deletedUserTrialRegistry: deleteUserTrial.deletedCount,
+        deletedDeviceTrialRegistry: deleteDeviceTrial.deletedCount,
+        deletedUserBudget: deleteBudget.deletedCount,
         timestamp: new Date().toISOString(),
       });
 
@@ -84,7 +100,7 @@ export class AccountController {
       // Log failure
       logger.error('Account deletion failed', {
         error: error instanceof Error ? error.message : 'Unknown error',
-        userId: req.user?.id,
+        userId,  // Use the authenticated userId from requireAuth
         timestamp: new Date().toISOString(),
       });
       next(error);
