@@ -23,9 +23,10 @@ export class AccountController {
     res: Response,
     next: NextFunction
   ): Promise<void> => {
+    let userId: string | undefined;
     try {
       // Get authenticated user ID
-      const userId = requireAuth(req);
+      userId = String(requireAuth(req));
 
       // Validate DELETE confirmation (optional - frontend already validates)
       const { confirmText } = req.body as DeleteAccountBody;
@@ -96,11 +97,11 @@ export class AccountController {
         success: true,
         message: 'Account deleted successfully',
       });
-    } catch (error) {
+    } catch (error: unknown) {
       // Log failure
       logger.error('Account deletion failed', {
         error: error instanceof Error ? error.message : 'Unknown error',
-        userId,  // Use the authenticated userId from requireAuth
+        userId: userId ?? 'unknown',  // Use the authenticated userId from requireAuth
         timestamp: new Date().toISOString(),
       });
       next(error);

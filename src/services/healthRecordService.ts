@@ -192,6 +192,10 @@ export class HealthRecordService {
           throw new Error('Exchange rate not available for currency conversion');
         }
 
+        if (rate <= 0 || !isFinite(rate)) {
+          throw new Error('Invalid exchange rate');
+        }
+
         healthRecordData.amountBase = this.round(cost * rate);
         healthRecordData.fxRate = rate;
         healthRecordData.fxAsOf = new Date();
@@ -281,7 +285,7 @@ export class HealthRecordService {
         }
       } else {
         updateQuery.$unset = {
-          ...(updateQuery.$unset || {}),
+          ...(updateQuery.$unset ?? {}),
           amountBase: 1,
           fxRate: 1,
           fxAsOf: 1,

@@ -103,7 +103,10 @@ export class ReportService {
             [
               record.veterinarian ? `Vet: ${record.veterinarian}` : null,
               record.clinic ? `Clinic: ${record.clinic}` : null,
-              record.cost ? `Cost: ${formatCurrency(record.cost, baseCurrency)}` : null,
+              record.cost != null ? `Cost: ${formatCurrency(record.cost, record.currency)}` : null,
+              record.cost != null && record.currency !== baseCurrency && record.amountBase != null 
+                ? `(≈ ${formatCurrency(record.amountBase, baseCurrency)})` 
+                : null,
             ]
               .filter(Boolean)
               .join(' • ')

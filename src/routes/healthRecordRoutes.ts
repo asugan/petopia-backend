@@ -25,6 +25,7 @@ const createHealthRecordSchema = z.object({
   veterinarian: z.string().optional(),
   clinic: z.string().optional(),
   cost: z.number().nonnegative().optional(),
+  currency: z.enum(['TRY', 'USD', 'EUR', 'GBP']).optional(),
   notes: z.string().optional(),
   attachments: z.string().optional(),
   treatmentPlan: z.array(z.object({
