@@ -133,6 +133,22 @@ export function getUTCTodayBoundaries() {
   return createUTCDateFilter(utcDateString);
 }
 
+export function formatDateInTimeZone(date: Date, timeZone: string): string {
+  let tz = timeZone || 'UTC';
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: tz });
+  } catch {
+    tz = 'UTC';
+  }
+
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date);
+}
+
 /**
  * Check if a date is today in UTC
  * @param date - Date object or timestamp
@@ -172,6 +188,14 @@ function formatUTCDateString(date: Date): string {
   const month = String(date.getUTCMonth() + 1).padStart(2, '0');
   const day = String(date.getUTCDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+function addDaysToDateString(dateStr: string, days: number): string {
+  const [yearStr, monthStr, dayStr] = dateStr.split('-');
+  const nextDate = new Date(
+    Date.UTC(Number(yearStr), Number(monthStr) - 1, Number(dayStr) + days)
+  );
+  return formatUTCDateString(nextDate);
 }
 
 function getTimeZoneOffsetMinutes(date: Date, timeZone: string): number {
@@ -248,4 +272,29 @@ export function getUTCDateRangeForLocalDate(
   const end = zonedStartOfDayToUTC(nextDateStr, tz);
 
   return { start, end };
+}
+
+export function getUTCTodayBoundariesForTimeZone(timeZone: string) {
+  const todayLocal = formatDateInTimeZone(new Date(), timeZone);
+  const { start, end } = getUTCDateRangeForLocalDate(todayLocal, timeZone);
+
+  return {
+    gte: start.getTime(),
+    lte: end.getTime() - 1,
+  };
+}
+
+export function getUTCUpcomingBoundariesForTimeZone(
+  days: number,
+  timeZone: string
+) {
+  const now = new Date();
+  const todayLocal = formatDateInTimeZone(now, timeZone);
+  const endDateStr = addDaysToDateString(todayLocal, days);
+  const { end } = getUTCDateRangeForLocalDate(endDateStr, timeZone);
+
+  return {
+    gte: now.getTime(),
+    lte: end.getTime() - 1,
+  };
 }

@@ -3,8 +3,8 @@ import { EventModel, IEventDocument, PetModel, UserSettingsModel } from '../mode
 import { EventQueryParams } from '../types/api';
 import {
   getUTCDateRangeForLocalDate,
-  getUTCTodayBoundaries,
-  getUTCUpcomingBoundaries,
+  getUTCTodayBoundariesForTimeZone,
+  getUTCUpcomingBoundariesForTimeZone,
   parseUTCDate,
 } from '../lib/dateUtils';
 
@@ -185,8 +185,15 @@ export class EventService {
       throw new Error('Days parameter cannot exceed 365');
     }
 
-    // Get UTC boundaries for the date range
-    const boundaries = getUTCUpcomingBoundaries(days);
+    const settings = await UserSettingsModel.findOne({ userId })
+      .select({ timezone: 1 })
+      .lean()
+      .exec();
+
+    const boundaries = getUTCUpcomingBoundariesForTimeZone(
+      days,
+      settings?.timezone ?? 'UTC'
+    );
 
     const whereClause: QueryFilter<IEventDocument> = {
       userId: new Types.ObjectId(userId),
@@ -209,7 +216,11 @@ export class EventService {
    * Get today's events for a user (UTC-based)
    */
   async getTodayEvents(userId: string, petId?: string): Promise<HydratedDocument<IEventDocument>[]> {
-    const todayBoundary = getUTCTodayBoundaries();
+    const settings = await UserSettingsModel.findOne({ userId })
+      .select({ timezone: 1 })
+      .lean()
+      .exec();
+    const todayBoundary = getUTCTodayBoundariesForTimeZone(settings?.timezone ?? 'UTC');
 
     const whereClause: QueryFilter<IEventDocument> = {
       userId: new Types.ObjectId(userId),
