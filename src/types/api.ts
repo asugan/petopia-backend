@@ -1,4 +1,4 @@
-import type { EventType, HealthRecordType } from '../models/mongoose/types';
+import type { EventType, HealthRecordType, ReminderPresetKey } from '../models/mongoose/types';
 
 // API Response Types
 export interface ApiResponse<T = unknown> {
@@ -29,7 +29,7 @@ export interface PaginationMeta {
   totalPages: number;
 }
 
-export type { EventType, HealthRecordType } from '../models/mongoose/types';
+export type { EventType, HealthRecordType, ReminderPresetKey } from '../models/mongoose/types';
 
 // Request/Response types for each entity
 export interface CreatePetRequest {
@@ -103,6 +103,7 @@ export interface CreateEventRequest {
   location?: string;
   notes?: string;
   reminder?: boolean;
+  reminderPreset?: ReminderPresetKey;
   vaccineName?: string;
   vaccineManufacturer?: string;
   batchNumber?: string;
@@ -120,6 +121,7 @@ export interface UpdateEventRequest {
   location?: string;
   notes?: string;
   reminder?: boolean;
+  reminderPreset?: ReminderPresetKey;
   vaccineName?: string;
   vaccineManufacturer?: string;
   batchNumber?: string;
@@ -300,6 +302,15 @@ export interface UserSettings {
   timezone: string;
   language: string;
   theme: 'light' | 'dark';
+  notificationsEnabled: boolean;
+  budgetNotificationsEnabled: boolean;
+  quietHoursEnabled: boolean;
+  quietHours: {
+    startHour: number;
+    startMinute: number;
+    endHour: number;
+    endMinute: number;
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -309,6 +320,15 @@ export interface UpdateUserSettingsRequest {
   timezone?: string;
   language?: string;
   theme?: 'light' | 'dark';
+  notificationsEnabled?: boolean;
+  budgetNotificationsEnabled?: boolean;
+  quietHoursEnabled?: boolean;
+  quietHours?: {
+    startHour: number;
+    startMinute: number;
+    endHour: number;
+    endMinute: number;
+  };
 }
 
 export interface UpdateBaseCurrencyRequest {

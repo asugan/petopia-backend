@@ -12,6 +12,11 @@ const eventSchema = new Schema<IEventDocument>({
   location: String,
   notes: String,
   reminder: { type: Boolean, default: false },
+  reminderPreset: {
+    type: String,
+    enum: ['standard', 'compact', 'minimal'],
+    default: 'standard',
+  },
   vaccineName: String,
   vaccineManufacturer: String,
   batchNumber: String,

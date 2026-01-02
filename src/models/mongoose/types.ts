@@ -21,6 +21,8 @@ export type EventType =
   | 'medication'
   | 'other';
 
+export type ReminderPresetKey = 'standard' | 'compact' | 'minimal';
+
 // Pet Document Interface
 export interface IPetDocument extends Document {
   _id: Types.ObjectId;
@@ -82,6 +84,7 @@ export interface IEventDocument extends Document {
   location?: string;
   notes?: string;
   reminder: boolean;
+  reminderPreset?: ReminderPresetKey;
   vaccineName?: string;
   vaccineManufacturer?: string;
   batchNumber?: string;
@@ -136,6 +139,10 @@ export interface IUserBudgetDocument extends Document {
   currency: string;
   alertThreshold: number;
   isActive: boolean;
+  lastAlertAt?: Date;
+  lastAlertSeverity?: 'warning' | 'critical';
+  lastAlertPeriod?: string;
+  lastAlertPercentage?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -204,6 +211,15 @@ export interface IUserSettingsDocument extends Document {
   timezone: string;
   language: string;
   theme: 'light' | 'dark';
+  notificationsEnabled: boolean;
+  budgetNotificationsEnabled: boolean;
+  quietHoursEnabled: boolean;
+  quietHours: {
+    startHour: number;
+    startMinute: number;
+    endHour: number;
+    endMinute: number;
+  };
   createdAt: Date;
   updatedAt: Date;
 }

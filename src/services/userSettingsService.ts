@@ -16,6 +16,15 @@ interface UpdateUserSettingsInput {
   timezone?: string;
   language?: string;
   theme?: 'light' | 'dark';
+  notificationsEnabled?: boolean;
+  budgetNotificationsEnabled?: boolean;
+  quietHoursEnabled?: boolean;
+  quietHours?: {
+    startHour: number;
+    startMinute: number;
+    endHour: number;
+    endMinute: number;
+  };
 }
 
 export class UserSettingsService {
@@ -49,6 +58,22 @@ export class UserSettingsService {
 
     if (updates.theme && !['light', 'dark'].includes(updates.theme)) {
       throw new Error('Invalid theme. Must be light or dark');
+    }
+
+    if (updates.notificationsEnabled !== undefined && typeof updates.notificationsEnabled !== 'boolean') {
+      throw new Error('Invalid notificationsEnabled. Must be boolean');
+    }
+
+    if (updates.budgetNotificationsEnabled !== undefined && typeof updates.budgetNotificationsEnabled !== 'boolean') {
+      throw new Error('Invalid budgetNotificationsEnabled. Must be boolean');
+    }
+
+    if (updates.quietHoursEnabled !== undefined && typeof updates.quietHoursEnabled !== 'boolean') {
+      throw new Error('Invalid quietHoursEnabled. Must be boolean');
+    }
+
+    if (updates.quietHours !== undefined) {
+      this.validateQuietHours(updates.quietHours);
     }
 
     const existingSettings = await UserSettingsModel.findOne({ userId }).exec();
@@ -127,6 +152,29 @@ export class UserSettingsService {
     return settings.baseCurrency;
   }
 
+  private validateQuietHours(quietHours: UpdateUserSettingsInput['quietHours']): void {
+    if (!quietHours) {
+      throw new Error('quietHours is required');
+    }
+
+    const { startHour, startMinute, endHour, endMinute } = quietHours;
+    const values = { startHour, startMinute, endHour, endMinute };
+
+    for (const [key, value] of Object.entries(values)) {
+      if (!Number.isInteger(value)) {
+        throw new Error(`Invalid ${key}. Must be an integer`);
+      }
+    }
+
+    if (startHour < 0 || startHour > 23 || endHour < 0 || endHour > 23) {
+      throw new Error('Invalid quietHours hour. Must be between 0 and 23');
+    }
+
+    if (startMinute < 0 || startMinute > 59 || endMinute < 0 || endMinute > 59) {
+      throw new Error('Invalid quietHours minute. Must be between 0 and 59');
+    }
+  }
+
   private async syncUserBudgetCurrency(
     userId: string,
     previousBaseCurrency: 'TRY' | 'USD' | 'EUR' | 'GBP',
@@ -152,6 +200,10 @@ export class UserSettingsService {
     }
 
     budget.currency = nextBaseCurrency;
+    budget.lastAlertAt = undefined;
+    budget.lastAlertSeverity = undefined;
+    budget.lastAlertPeriod = undefined;
+    budget.lastAlertPercentage = undefined;
     await budget.save();
   }
 

@@ -7,6 +7,10 @@ const userBudgetSchema = new Schema<IUserBudgetDocument>({
   currency: { type: String, default: 'TRY' },
   alertThreshold: { type: Number, default: 0.8 },
   isActive: { type: Boolean, default: true },
+  lastAlertAt: { type: Date },
+  lastAlertSeverity: { type: String, enum: ['warning', 'critical'] },
+  lastAlertPeriod: { type: String },
+  lastAlertPercentage: { type: Number },
 }, {
   timestamps: true
 });

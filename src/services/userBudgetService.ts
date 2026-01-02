@@ -90,12 +90,24 @@ export class UserBudgetService {
     const existingBudget = await this.getBudgetByUserId(userId);
 
     if (existingBudget) {
+      const nextAlertThreshold = data.alertThreshold ?? existingBudget.alertThreshold ?? 0.8;
+      const nextIsActive = data.isActive ?? existingBudget.isActive ?? true;
+      const shouldResetAlerts =
+        (data.alertThreshold !== undefined &&
+          data.alertThreshold !== existingBudget.alertThreshold) ||
+        (data.amount !== undefined && data.amount !== existingBudget.amount) ||
+        (existingBudget.isActive === false && nextIsActive === true);
+
       // Update existing budget
       const updatedBudgetData = {
         amount: data.amount,
         currency: baseCurrency,
-        alertThreshold: data.alertThreshold ?? 0.8,
-        isActive: data.isActive ?? true,
+        alertThreshold: nextAlertThreshold,
+        isActive: nextIsActive,
+        lastAlertAt: shouldResetAlerts ? undefined : existingBudget.lastAlertAt,
+        lastAlertSeverity: shouldResetAlerts ? undefined : existingBudget.lastAlertSeverity,
+        lastAlertPeriod: shouldResetAlerts ? undefined : existingBudget.lastAlertPeriod,
+        lastAlertPercentage: shouldResetAlerts ? undefined : existingBudget.lastAlertPercentage,
         updatedAt: new Date(),
       };
 
@@ -311,18 +323,43 @@ export class UserBudgetService {
    * Simple alert check (tüm petler için)
    */
   async checkBudgetAlert(userId: string): Promise<BudgetAlert | null> {
+    const settings = await this.userSettingsService.getSettingsByUserId(userId);
+    if (!settings.notificationsEnabled || !settings.budgetNotificationsEnabled) {
+      return null;
+    }
+
     const budgetStatus = await this.getBudgetStatus(userId);
 
     if (!budgetStatus?.isAlert) {
       return null;
     }
 
+    const now = new Date();
+    const periodKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     const severity =
       budgetStatus.percentage >= 100 ? 'critical' : 'warning';
+
+    const lastPeriod = budgetStatus.budget.lastAlertPeriod;
+    const lastSeverity = budgetStatus.budget.lastAlertSeverity;
+    if (lastPeriod === periodKey) {
+      if (lastSeverity === 'critical') {
+        return null;
+      }
+      if (lastSeverity === severity) {
+        return null;
+      }
+    }
+
     const payloadBody =
       budgetStatus.percentage >= 100
         ? 'Budget limit exceeded. Review your expenses.'
         : 'You are nearing your budget limit. Consider adjusting spending.';
+
+    budgetStatus.budget.lastAlertAt = now;
+    budgetStatus.budget.lastAlertSeverity = severity;
+    budgetStatus.budget.lastAlertPeriod = periodKey;
+    budgetStatus.budget.lastAlertPercentage = budgetStatus.percentage;
+    await budgetStatus.budget.save();
 
     return {
       budget: budgetStatus.budget,
