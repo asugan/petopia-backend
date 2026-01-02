@@ -1,4 +1,4 @@
-import type { EventType, HealthRecordType, ReminderPresetKey } from '../models/mongoose/types';
+import type { EventStatus, EventType, HealthRecordType, ReminderPresetKey } from '../models/mongoose/types';
 
 // API Response Types
 export interface ApiResponse<T = unknown> {
@@ -29,7 +29,7 @@ export interface PaginationMeta {
   totalPages: number;
 }
 
-export type { EventType, HealthRecordType, ReminderPresetKey } from '../models/mongoose/types';
+export type { EventStatus, EventType, HealthRecordType, ReminderPresetKey } from '../models/mongoose/types';
 
 // Request/Response types for each entity
 export interface CreatePetRequest {
@@ -104,6 +104,7 @@ export interface CreateEventRequest {
   notes?: string;
   reminder?: boolean;
   reminderPreset?: ReminderPresetKey;
+  status?: EventStatus;
   vaccineName?: string;
   vaccineManufacturer?: string;
   batchNumber?: string;
@@ -122,6 +123,7 @@ export interface UpdateEventRequest {
   notes?: string;
   reminder?: boolean;
   reminderPreset?: ReminderPresetKey;
+  status?: EventStatus;
   vaccineName?: string;
   vaccineManufacturer?: string;
   batchNumber?: string;

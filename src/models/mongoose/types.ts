@@ -22,6 +22,7 @@ export type EventType =
   | 'other';
 
 export type ReminderPresetKey = 'standard' | 'compact' | 'minimal';
+export type EventStatus = 'upcoming' | 'completed' | 'cancelled' | 'missed';
 
 // Pet Document Interface
 export interface IPetDocument extends Document {
@@ -85,6 +86,7 @@ export interface IEventDocument extends Document {
   notes?: string;
   reminder: boolean;
   reminderPreset?: ReminderPresetKey;
+  status: EventStatus;
   vaccineName?: string;
   vaccineManufacturer?: string;
   batchNumber?: string;

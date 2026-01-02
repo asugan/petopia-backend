@@ -31,6 +31,7 @@ const createEventSchema = z.object({
   notes: z.string().optional(),
   reminder: z.boolean().optional(),
   reminderPreset: z.enum(['standard', 'compact', 'minimal']).optional(),
+  status: z.enum(['upcoming', 'completed', 'cancelled', 'missed']).optional(),
   vaccineName: z.string().optional(),
   vaccineManufacturer: z.string().optional(),
   batchNumber: z.string().optional(),

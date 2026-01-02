@@ -17,6 +17,11 @@ const eventSchema = new Schema<IEventDocument>({
     enum: ['standard', 'compact', 'minimal'],
     default: 'standard',
   },
+  status: {
+    type: String,
+    enum: ['upcoming', 'completed', 'cancelled', 'missed'],
+    default: 'upcoming',
+  },
   vaccineName: String,
   vaccineManufacturer: String,
   batchNumber: String,

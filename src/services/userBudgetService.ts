@@ -324,7 +324,7 @@ export class UserBudgetService {
    */
   async checkBudgetAlert(userId: string): Promise<BudgetAlert | null> {
     const settings = await this.userSettingsService.getSettingsByUserId(userId);
-    if (!settings.notificationsEnabled || !settings.budgetNotificationsEnabled) {
+    if (!settings || !settings.notificationsEnabled || !settings.budgetNotificationsEnabled) {
       return null;
     }
 
