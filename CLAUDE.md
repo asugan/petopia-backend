@@ -65,7 +65,7 @@ Use `parseUTCDate()` from `src/lib/dateUtils.ts` to convert string dates to UTC 
 
 ## Key Configuration
 
-- **Auth**: `src/lib/auth.ts` - Better-Auth configuration with Google, Apple, Facebook providers. Email/password is disabled.
+- **Auth**: `src/lib/auth.ts` - Better-Auth configuration with Google and Apple providers. Email/password is disabled.
 - **MongoDB**: Two connections - one via Mongoose (`mongoose.connect`), one via native MongoDB driver for Better-Auth (`authMongoClient`).
 - **CORS**: Configured for mobile apps including Expo development URLs and capacitor:// schemes.
 

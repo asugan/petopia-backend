@@ -8,7 +8,7 @@ MongoDB.
 - **Express.js v5** REST API server
 - **TypeScript** for type safety
 - **MongoDB** database with **Mongoose** ODM
-- **Better-Auth** authentication with social providers (Google, Apple, Facebook)
+- **Better-Auth** authentication with social providers (Google, Apple)
 - **Mobile-first** design with Expo/React Native support
 - **Security middleware** (Helmet, CORS, Rate Limiting)
 - **Request validation** with Zod
@@ -56,8 +56,6 @@ Required environment variables:
 - `GOOGLE_CLIENT_SECRET` - Google OAuth client secret (optional)
 - `APPLE_CLIENT_ID` - Apple Sign In client ID (optional)
 - `APPLE_CLIENT_SECRET` - Apple Sign In client secret (optional)
-- `FACEBOOK_CLIENT_ID` - Facebook App ID (optional)
-- `FACEBOOK_CLIENT_SECRET` - Facebook App Secret (optional)
 
 4. Set up the database (optional - seed with test data):
 
@@ -104,7 +102,6 @@ All endpoints under `/api/auth/*` are handled by Better-Auth:
 
 - Google Sign In
 - Apple Sign In
-- Facebook Login
 - Session management
 
 ### Pets
@@ -204,8 +201,6 @@ scripts/                  # Database utility scripts (seed, clean, status, index
 | `GOOGLE_CLIENT_SECRET`   | Google OAuth client secret           | No\*     |
 | `APPLE_CLIENT_ID`        | Apple Sign In client ID              | No\*     |
 | `APPLE_CLIENT_SECRET`    | Apple Sign In client secret          | No\*     |
-| `FACEBOOK_CLIENT_ID`     | Facebook App ID                      | No\*     |
-| `FACEBOOK_CLIENT_SECRET` | Facebook App Secret                  | No\*     |
 
 \*Required for social login features
 
@@ -313,7 +308,7 @@ npm run db:generate-indexes
 
 Authentication is handled by **Better-Auth** with the following features:
 
-- Social providers (Google, Apple, Facebook)
+- Social providers (Google, Apple)
 - Session-based authentication (7-day expiration)
 - Mobile app support via Expo plugin
 - Rate limiting stored in MongoDB

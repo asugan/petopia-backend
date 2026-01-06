@@ -25,8 +25,6 @@ const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 const appleClientId = process.env.APPLE_CLIENT_ID;
 const appleClientSecret = process.env.APPLE_CLIENT_SECRET;
-const facebookClientId = process.env.FACEBOOK_CLIENT_ID;
-const facebookClientSecret = process.env.FACEBOOK_CLIENT_SECRET;
 
 export const auth: ReturnType<typeof betterAuth> = betterAuth({
   database: mongodbAdapter(db, {
@@ -50,14 +48,6 @@ export const auth: ReturnType<typeof betterAuth> = betterAuth({
           apple: {
             clientId: appleClientId,
             clientSecret: appleClientSecret,
-          },
-        }
-      : {}),
-    ...(facebookClientId && facebookClientSecret
-      ? {
-          facebook: {
-            clientId: facebookClientId,
-            clientSecret: facebookClientSecret,
           },
         }
       : {}),
