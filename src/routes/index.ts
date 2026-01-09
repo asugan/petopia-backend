@@ -10,6 +10,7 @@ import userSettingsRoutes from './userSettingsRoutes';
 import subscriptionRoutes from './subscriptionRoutes';
 import accountRoutes from './accountRoutes';
 import { WebhookController } from '../controllers/webhookController';
+import { requireActiveSubscription } from '../middleware/subscription';
 
 const router = Router();
 
@@ -20,6 +21,14 @@ router.post('/subscription/webhook', webhookController.handleWebhook);
 // All other API routes require authentication
 router.use(authMiddleware);
 
+// Subscription routes remain available without an active subscription
+router.use('/subscription', subscriptionRoutes);
+router.use('/account', accountRoutes);
+router.use('/settings', userSettingsRoutes);
+
+// All remaining routes require an active subscription (trial or paid)
+router.use(requireActiveSubscription);
+
 // Mount routes
 router.use('/pets', petRoutes);
 router.use('/health-records', healthRecordRoutes);
@@ -27,9 +36,6 @@ router.use('/events', eventRoutes);
 router.use('/feeding-schedules', feedingScheduleRoutes);
 router.use('/expenses', expenseRoutes);
 router.use('/budget', userBudgetRoutes);
-router.use('/settings', userSettingsRoutes);
-router.use('/subscription', subscriptionRoutes);
-router.use('/account', accountRoutes);
 
 // Pet-specific nested routes
 router.use('/pets/:petId/health-records', healthRecordRoutes);
