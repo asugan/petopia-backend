@@ -61,6 +61,7 @@ export interface CreateHealthRecordRequest {
   veterinarian?: string;
   clinic?: string;
   cost?: number;
+  currency?: string;
   notes?: string;
   attachments?: string;
   treatmentPlan?: {
@@ -81,6 +82,7 @@ export interface UpdateHealthRecordRequest {
   veterinarian?: string;
   clinic?: string;
   cost?: number;
+  currency?: string;
   notes?: string;
   attachments?: string;
   treatmentPlan?: {

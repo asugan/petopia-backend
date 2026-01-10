@@ -3,15 +3,19 @@ import {
   EventModel,
   HealthRecordModel,
   type IEventDocument,
+  type IExpenseDocument,
   type IHealthRecordDocument,
   PetModel,
 } from '../models/mongoose';
 import type { HealthRecordQueryParams } from '../types/api';
 import { parseUTCDate } from '../lib/dateUtils';
+import { logger } from '../utils/logger';
 import { ExchangeRateService } from './exchangeRateService';
+import { ExpenseService } from './expenseService';
 import { UserSettingsService } from './userSettingsService';
 
 const exchangeRateService = new ExchangeRateService();
+const expenseService = new ExpenseService();
 const userSettingsService = new UserSettingsService();
 
 export interface TreatmentPlanItem {
@@ -156,6 +160,122 @@ export class HealthRecordService {
     return createdEvent;
   }
 
+  private getExpenseCategory(healthRecordType: string): string {
+    switch (healthRecordType) {
+      case 'checkup':
+      case 'visit':
+      case 'surgery':
+      case 'dental':
+        return 'veterinary';
+      case 'grooming':
+        return 'grooming';
+      case 'other':
+      default:
+        return 'other';
+    }
+  }
+
+  private shouldCreateExpense(cost?: number): boolean {
+    return cost !== undefined && cost > 0;
+  }
+
+  private async syncExpenseForHealthRecord(
+    userId: string,
+    existingRecord: HydratedDocument<IHealthRecordDocument>,
+    updatedRecord: HydratedDocument<IHealthRecordDocument>,
+    nextCost: number | undefined,
+    nextCurrency: string | undefined,
+    nextDate: Date,
+    nextType: string
+  ): Promise<HydratedDocument<IHealthRecordDocument>> {
+    const linkedExpenseId = existingRecord.expenseId;
+    const shouldHaveExpense = this.shouldCreateExpense(nextCost);
+
+    if (!shouldHaveExpense) {
+      if (linkedExpenseId) {
+        try {
+          await expenseService.deleteExpense(userId, linkedExpenseId.toString());
+        } catch (error) {
+          logger.error(
+            `Failed to delete expense ${linkedExpenseId.toString()} for health record ${updatedRecord._id.toString()}`,
+            error
+          );
+        }
+      }
+
+      return updatedRecord;
+    }
+
+    const expenseCategory = this.getExpenseCategory(nextType);
+
+    if (linkedExpenseId) {
+      try {
+        const expenseUpdates: Partial<IExpenseDocument> = {
+          category: expenseCategory,
+          date: nextDate,
+        };
+
+        if (nextCost !== undefined) {
+          expenseUpdates.amount = nextCost;
+        }
+
+        if (nextCurrency) {
+          expenseUpdates.currency = nextCurrency;
+        }
+
+        await expenseService.updateExpense(
+          userId,
+          linkedExpenseId.toString(),
+          expenseUpdates
+        );
+      } catch (error) {
+        logger.error(
+          `Failed to update expense ${linkedExpenseId.toString()} for health record ${updatedRecord._id.toString()}`,
+          error
+        );
+      }
+
+      return updatedRecord;
+    }
+
+    let createdExpenseId: Types.ObjectId | undefined;
+
+    try {
+      const createdExpense = await expenseService.createExpense(userId, {
+        petId: updatedRecord.petId,
+        category: expenseCategory,
+        amount: nextCost ?? 0,
+        currency: nextCurrency ?? updatedRecord.currency,
+        date: nextDate,
+      } as Partial<IExpenseDocument>);
+
+      createdExpenseId = createdExpense._id;
+
+      const recordWithExpense = await HealthRecordModel.findOneAndUpdate(
+        { _id: updatedRecord._id, userId },
+        { expenseId: createdExpense._id },
+        { new: true }
+      ).exec();
+
+      return recordWithExpense ?? updatedRecord;
+    } catch (error) {
+      // Rollback: delete orphan expense if health record update failed
+      if (createdExpenseId) {
+        await expenseService
+          .deleteExpense(userId, createdExpenseId.toString())
+          .catch(() => undefined);
+      }
+
+      logger.error(
+        `Failed to create expense for health record ${updatedRecord._id.toString()}`,
+        error
+      );
+    }
+
+    return updatedRecord;
+  }
+
+
   async createHealthRecord(
     userId: string,
     recordData: CreateHealthRecordData
@@ -223,6 +343,52 @@ export class HealthRecordService {
 
       if (!createdRecord) {
         throw new Error('Failed to create health record');
+      }
+
+      if (this.shouldCreateExpense(cost)) {
+        let createdExpenseId: Types.ObjectId | undefined;
+
+        try {
+          const expenseCategory = this.getExpenseCategory(recordData.type);
+          const createdExpense = await expenseService.createExpense(userId, {
+            petId: recordData.petId,
+            category: expenseCategory,
+            amount: cost,
+            currency: healthRecordData.currency as string,
+            date: recordData.date,
+          } as unknown as Partial<IExpenseDocument>);
+
+          createdExpenseId = createdExpense._id;
+
+          const updatedRecord = await HealthRecordModel.findOneAndUpdate(
+            { _id: createdRecord._id, userId },
+            { expenseId: createdExpense._id },
+            { new: true }
+          ).exec();
+
+          if (updatedRecord) {
+            return updatedRecord;
+          }
+
+          // Health record update failed, rollback expense
+          if (createdExpenseId) {
+            await expenseService
+              .deleteExpense(userId, createdExpenseId.toString())
+              .catch(() => undefined);
+          }
+        } catch (error) {
+          // Rollback: delete orphan expense if it was created
+          if (createdExpenseId) {
+            await expenseService
+              .deleteExpense(userId, createdExpenseId.toString())
+              .catch(() => undefined);
+          }
+
+          logger.error(
+            `Failed to create expense for health record ${createdRecord._id.toString()}`,
+            error
+          );
+        }
       }
 
       return createdRecord;
@@ -299,6 +465,19 @@ export class HealthRecordService {
       }
     }
 
+    const nextCost = cost ?? existingRecord.cost;
+    const nextCurrency = currency ?? existingRecord.currency;
+    const nextDate = updates.date ?? existingRecord.date;
+    const nextType = restUpdates.type ?? existingRecord.type;
+    const linkedExpenseId = existingRecord.expenseId;
+
+    if (!this.shouldCreateExpense(nextCost) && linkedExpenseId) {
+      updateQuery.$unset = {
+        ...(updateQuery.$unset ?? {}),
+        expenseId: 1,
+      };
+    }
+
     const baseTitle = restUpdates.title ?? existingRecord.title;
     const eventTitle = `Next Visit: ${baseTitle}`;
     const eventDescription = `Follow-up for ${baseTitle}`;
@@ -306,9 +485,14 @@ export class HealthRecordService {
     const linkedEventId = existingRecord.nextVisitEventId;
 
     if (nextVisitDate === null && linkedEventId) {
+      const unsetUpdates = {
+        ...(updateQuery.$unset ?? {}),
+        nextVisitEventId: 1,
+      };
+
       const updatedRecord = await HealthRecordModel.findOneAndUpdate(
         { _id: id, userId },
-        { ...updateQuery, $unset: { nextVisitEventId: 1 } },
+        { ...updateQuery, $unset: unsetUpdates },
         { new: true }
       ).exec();
 
@@ -329,7 +513,16 @@ export class HealthRecordService {
         throw error;
       }
 
-      return updatedRecord;
+      // Sync expense even when clearing nextVisitDate
+      return await this.syncExpenseForHealthRecord(
+        userId,
+        existingRecord,
+        updatedRecord,
+        nextCost,
+        nextCurrency,
+        nextDate,
+        nextType
+      );
     }
 
     let createdEventId: Types.ObjectId | undefined;
@@ -420,7 +613,19 @@ export class HealthRecordService {
         { new: true }
       ).exec();
 
-      return updatedRecord ?? null;
+      if (!updatedRecord) {
+        return null;
+      }
+
+      return await this.syncExpenseForHealthRecord(
+        userId,
+        existingRecord,
+        updatedRecord,
+        nextCost,
+        nextCurrency,
+        nextDate,
+        nextType
+      );
     } catch (error) {
       if (createdEventId) {
         await EventModel.findOneAndDelete({ _id: createdEventId, userId })
@@ -453,6 +658,7 @@ export class HealthRecordService {
     }
 
     const linkedEventId = existingRecord.nextVisitEventId;
+    const linkedExpenseId = existingRecord.expenseId;
 
     let linkedEventSnapshot: EventSnapshot | undefined;
 
@@ -503,6 +709,17 @@ export class HealthRecordService {
         }
 
         return false;
+      }
+
+      if (linkedExpenseId) {
+        try {
+          await expenseService.deleteExpense(userId, linkedExpenseId.toString());
+        } catch (error) {
+          logger.error(
+            `Failed to delete expense ${linkedExpenseId.toString()} for health record ${id}`,
+            error
+          );
+        }
       }
 
       return true;

@@ -68,6 +68,7 @@ export interface IHealthRecordDocument extends Document {
   attachments?: string;
   treatmentPlan?: ITreatmentPlanItem[];
   nextVisitEventId?: Types.ObjectId;
+  expenseId?: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }

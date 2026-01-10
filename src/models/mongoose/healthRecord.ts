@@ -26,6 +26,7 @@ const healthRecordSchema = new Schema<IHealthRecordDocument>({
     notes: String
   }],
   nextVisitEventId: { type: Schema.Types.ObjectId, ref: 'Event' },
+  expenseId: { type: Schema.Types.ObjectId, ref: 'Expense' },
 }, {
   timestamps: true
 });
