@@ -64,24 +64,79 @@ app.get('/health', (_req: Request, res: Response) => {
   });
 });
 
-// API info endpoint
-app.get('/api', (_req: Request, res: Response) => {
-  res.json({
-    success: true,
-    data: {
-      message: 'PawPa Backend API is running',
-      version: 'v1',
-      endpoints: {
+const apiInfoResponse = {
+  success: true,
+  data: {
+    message: 'Petopia Backend API is running',
+    version: 'v1',
+    endpoints: {
+      public: {
+        health: '/health',
+        publicConfig: '/api/public-config',
+        subscriptionWebhook: '/api/subscription/webhook',
+      },
+      auth: {
         auth: '/api/auth/*',
+      },
+      account: {
+        account: '/api/account',
+        settings: '/api/settings',
+        subscription: {
+          status: '/api/subscription/status',
+          trialStatus: '/api/subscription/trial-status',
+          startTrial: '/api/subscription/start-trial',
+          deactivateTrial: '/api/subscription/deactivate-trial',
+        },
+      },
+      protected: {
         pets: '/api/pets',
+        petsById: '/api/pets/:id',
+        petPhoto: '/api/pets/:id/photo',
+        petHealthRecords: '/api/pets/:id/health-records',
         healthRecords: '/api/health-records',
+        healthRecordById: '/api/health-records/:id',
         events: '/api/events',
+        eventById: '/api/events/:id',
+        eventUpcoming: '/api/events/upcoming',
+        eventToday: '/api/events/today',
+        eventCalendar: '/api/events/calendar/:date',
         feedingSchedules: '/api/feeding-schedules',
+        feedingScheduleById: '/api/feeding-schedules/:id',
+        feedingSchedulesActive: '/api/feeding-schedules/active',
+        feedingSchedulesToday: '/api/feeding-schedules/today',
+        feedingSchedulesNext: '/api/feeding-schedules/next',
         expenses: '/api/expenses',
-        budgetLimits: '/api/budget-limits',
+        expenseById: '/api/expenses/:id',
+        expenseStats: '/api/expenses/stats',
+        expenseByDate: '/api/expenses/by-date',
+        expenseMonthly: '/api/expenses/monthly',
+        expenseYearly: '/api/expenses/yearly',
+        expenseByCategory: '/api/expenses/by-category/:category',
+        expenseExportCsv: '/api/expenses/export/csv',
+        expenseExportPdf: '/api/expenses/export/pdf',
+        expenseExportVetSummary: '/api/expenses/export/vet-summary',
+        budget: '/api/budget',
+        budgetStatus: '/api/budget/status',
+        budgetAlerts: '/api/budget/alerts',
+      },
+      nested: {
+        petHealthRecords: '/api/pets/:petId/health-records',
+        petEvents: '/api/pets/:petId/events',
+        petFeedingSchedules: '/api/pets/:petId/feeding-schedules',
+        petExpenses: '/api/pets/:petId/expenses',
       },
     },
-  });
+  },
+};
+
+// API info endpoint
+app.get('/api', (_req: Request, res: Response) => {
+  res.json(apiInfoResponse);
+});
+
+// Root endpoint
+app.get('/', (_req: Request, res: Response) => {
+  res.json(apiInfoResponse);
 });
 
 // Mount API routes after the info endpoint
