@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Request, Response, Router } from 'express';
 import { authMiddleware } from '../middleware/auth';
 import petRoutes from './petRoutes';
 import healthRecordRoutes from './healthRecordRoutes';
@@ -17,6 +17,43 @@ const router = Router();
 // Webhook route - NO AUTH (has its own verification)
 const webhookController = new WebhookController();
 router.post('/subscription/webhook', webhookController.handleWebhook);
+
+// Public config route - NO AUTH (allowlisted public values)
+router.get('/public-config', (_req: Request, res: Response) => {
+  const requiredKeys = [
+    'PUBLIC_REVENUECAT_IOS_API_KEY',
+    'PUBLIC_REVENUECAT_ANDROID_API_KEY',
+    'PUBLIC_REVENUECAT_ENTITLEMENT_ID',
+  ] as const;
+
+  const missingKeys = requiredKeys.filter((key) => !process.env[key]);
+  if (missingKeys.length > 0) {
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'PUBLIC_CONFIG_MISSING',
+        message: 'Required public config is missing',
+        details: missingKeys,
+      },
+    });
+    return;
+  }
+
+  res.json({
+    success: true,
+    data: {
+      revenuecat: {
+        iosApiKey: process.env.PUBLIC_REVENUECAT_IOS_API_KEY,
+        androidApiKey: process.env.PUBLIC_REVENUECAT_ANDROID_API_KEY,
+        entitlementId: process.env.PUBLIC_REVENUECAT_ENTITLEMENT_ID,
+      },
+      legal: {
+        privacyUrl: process.env.PUBLIC_LEGAL_PRIVACY_URL ?? null,
+        termsUrl: process.env.PUBLIC_LEGAL_TERMS_URL ?? null,
+      },
+    },
+  });
+});
 
 // All other API routes require authentication
 router.use(authMiddleware);
