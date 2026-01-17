@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { ExpenseController } from '../controllers/expenseController';
+import { requireActiveSubscription } from '../middleware/subscription';
 import { validateRequest } from '../middleware/validation';
 import { z } from 'zod';
 import { validateObjectId } from '../utils/mongodb-validation';
@@ -63,9 +64,9 @@ router.get('/stats', expenseController.getExpenseStats);
 router.get('/by-date', expenseController.getExpensesByDateRange);
 router.get('/monthly', expenseController.getMonthlyExpenses);
 router.get('/yearly', expenseController.getYearlyExpenses);
-router.get('/export/csv', expenseController.exportExpensesCSV);
-router.get('/export/pdf', expenseController.exportExpensesPDF);
-router.get('/export/vet-summary', expenseController.exportVetSummaryPDF);
+router.get('/export/csv', requireActiveSubscription, expenseController.exportExpensesCSV);
+router.get('/export/pdf', requireActiveSubscription, expenseController.exportExpensesPDF);
+router.get('/export/vet-summary', requireActiveSubscription, expenseController.exportVetSummaryPDF);
 
 // Category route
 router.get('/by-category/:category', expenseController.getExpensesByCategory);

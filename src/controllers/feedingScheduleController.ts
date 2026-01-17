@@ -11,12 +11,16 @@ import {
   UpdateFeedingScheduleRequest,
 } from '../types/api';
 import { createError } from '../middleware/errorHandler';
+import { FeedingScheduleModel } from '../models/mongoose/feedingSchedule';
+import { SubscriptionService } from '../services/subscriptionService';
 
 export class FeedingScheduleController {
   private feedingScheduleService: FeedingScheduleService;
+  private subscriptionService: SubscriptionService;
 
   constructor() {
     this.feedingScheduleService = new FeedingScheduleService();
+    this.subscriptionService = new SubscriptionService();
   }
 
   // GET /api/feeding-schedules OR /api/pets/:petId/feeding-schedules - Get feeding schedules for authenticated user
@@ -119,6 +123,17 @@ export class FeedingScheduleController {
         );
       }
 
+      const isActive = scheduleData.isActive ?? true;
+      if (isActive) {
+        const subscriptionStatus = await this.subscriptionService.getSubscriptionStatus(userId);
+        if (!subscriptionStatus.hasActiveSubscription) {
+          const activeScheduleCount = await FeedingScheduleModel.countDocuments({ userId, isActive: true });
+          if (activeScheduleCount >= 1) {
+            throw createError('Feeding schedule limit reached', 402, 'PRO_REQUIRED');
+          }
+        }
+      }
+
       const schedule = await this.feedingScheduleService.createFeedingSchedule(
         userId,
         scheduleData
@@ -142,6 +157,23 @@ export class FeedingScheduleController {
 
       if (!id) {
         throw createError('Feeding schedule ID is required', 400, 'MISSING_ID');
+      }
+
+      if (updates.isActive === true) {
+        const existingSchedule = await this.feedingScheduleService.getFeedingScheduleById(
+          userId,
+          id
+        );
+        const isAlreadyActive = existingSchedule?.isActive === true;
+        if (!isAlreadyActive) {
+          const subscriptionStatus = await this.subscriptionService.getSubscriptionStatus(userId);
+          if (!subscriptionStatus.hasActiveSubscription) {
+            const activeScheduleCount = await FeedingScheduleModel.countDocuments({ userId, isActive: true });
+            if (activeScheduleCount >= 1) {
+              throw createError('Feeding schedule limit reached', 402, 'PRO_REQUIRED');
+            }
+          }
+        }
       }
 
       const schedule = await this.feedingScheduleService.updateFeedingSchedule(

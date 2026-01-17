@@ -11,14 +11,17 @@ import {
 import { createError } from '../middleware/errorHandler';
 import { parseUTCDate } from '../lib/dateUtils';
 import { IPetDocument } from '../models/mongoose';
+import { SubscriptionService } from '../services/subscriptionService';
 
 export class PetController {
   private petService: PetService;
   private healthRecordService: HealthRecordService;
+  private subscriptionService: SubscriptionService;
 
   constructor() {
     this.petService = new PetService();
     this.healthRecordService = new HealthRecordService();
+    this.subscriptionService = new SubscriptionService();
   }
 
   // GET /api/pets - Get all pets for authenticated user
@@ -91,6 +94,14 @@ export class PetController {
           400,
           'MISSING_REQUIRED_FIELDS'
         );
+      }
+
+      const subscriptionStatus = await this.subscriptionService.getSubscriptionStatus(userId);
+      if (!subscriptionStatus.hasActiveSubscription) {
+        const { total } = await this.petService.getAllPets(userId, { page: 1, limit: 1 });
+        if (total >= 1) {
+          throw createError('Second pet requires Pro', 402, 'PRO_REQUIRED');
+        }
       }
 
       // Convert string dates to UTC Date objects

@@ -63,21 +63,20 @@ router.use('/subscription', subscriptionRoutes);
 router.use('/account', accountRoutes);
 router.use('/settings', userSettingsRoutes);
 
-// All remaining routes require an active subscription (trial or paid)
-router.use(requireActiveSubscription);
-
-// Mount routes
+// Core access routes (free forever)
 router.use('/pets', petRoutes);
 router.use('/health-records', healthRecordRoutes);
 router.use('/events', eventRoutes);
 router.use('/feeding-schedules', feedingScheduleRoutes);
 router.use('/expenses', expenseRoutes);
-router.use('/budget', userBudgetRoutes);
 
-// Pet-specific nested routes
+// Pet-specific nested routes (core access)
 router.use('/pets/:petId/health-records', healthRecordRoutes);
 router.use('/pets/:petId/events', eventRoutes);
 router.use('/pets/:petId/feeding-schedules', feedingScheduleRoutes);
 router.use('/pets/:petId/expenses', expenseRoutes);
+
+// Pro-only routes
+router.use('/budget', requireActiveSubscription, userBudgetRoutes);
 
 export default router;
