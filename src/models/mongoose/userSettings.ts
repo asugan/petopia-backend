@@ -13,7 +13,7 @@ const userSettingsSchema = new Schema<IUserSettingsDocument>({
   baseCurrency: {
     type: String,
     enum: ['TRY', 'USD', 'EUR', 'GBP'],
-    default: 'TRY',
+    default: 'USD',
     required: true
   },
   timezone: {
