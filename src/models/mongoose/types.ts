@@ -235,6 +235,7 @@ export interface IUserSettingsDocument extends Document {
     endHour: number;
     endMinute: number;
   };
+  defaultEventTime: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -303,7 +304,16 @@ export interface IUserDeviceDocument extends Document {
   updatedAt: Date;
 }
 
-// Scheduled Notification Document Interface
+/**
+ * Scheduled Notification Document Interface
+ * 
+ * Tracks push notifications processed for event reminders.
+ * 
+ * @property scheduledFor - The time the reminder was intended for (event time minus reminder offset)
+ * @property sentAt - When the notification was actually sent to Expo Push API
+ * @property status - Current state: 'pending' (queued), 'sent' (delivered), 'failed', 'cancelled'
+ * @property notificationId - Expo push notification ID returned after successful delivery
+ */
 export interface IScheduledNotificationDocument extends Document {
   _id: Types.ObjectId;
   userId: Types.ObjectId;

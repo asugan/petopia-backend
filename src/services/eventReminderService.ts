@@ -1,9 +1,15 @@
 import { Types } from 'mongoose';
 import { pushNotificationService } from './pushNotificationService.js';
 import { ScheduledNotificationModel } from '../models/mongoose/scheduledNotifications.js';
-import { EventModel } from '../models/mongoose/event.js';
+import { EventModel, UserSettingsModel } from '../models/mongoose/index.js';
 import { logger } from '../utils/logger.js';
 import { formatInTimeZone } from 'date-fns-tz';
+
+// Pagination settings for batch processing
+const BATCH_SIZE = 100; // Process 100 events at a time
+
+// Default timezone if user settings not available
+const DEFAULT_TIMEZONE = 'UTC';
 
 export interface EventReminderConfig {
   eventId: string;
@@ -138,57 +144,104 @@ export class EventReminderService {
 
   /**
    * Schedule reminders for all upcoming events with reminders enabled
+   * Uses cursor-based pagination to handle large datasets efficiently
    */
   async scheduleAllUpcomingReminders(): Promise<{ eventsProcessed: number; remindersScheduled: number }> {
     const now = new Date();
     const sevenDaysLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-    // Get all upcoming events with reminders enabled
-    const events = await EventModel.find({
+    let eventsProcessed = 0;
+    let remindersScheduled = 0;
+    let lastId: Types.ObjectId | null = null;
+    let hasMore = true;
+
+    // Cache for user timezones to avoid repeated DB queries
+    const userTimezoneCache = new Map<string, string>();
+
+    // Base query for upcoming events with reminders
+    const baseQuery = {
       reminder: true,
       status: 'upcoming',
       startTime: { $gte: now, $lte: sevenDaysLater },
-    })
-      .populate('petId', 'name')
-      .lean();
+    };
 
-    let eventsProcessed = 0;
-    let remindersScheduled = 0;
+    while (hasMore) {
+      // Build cursor-based query
+      const query: Record<string, unknown> = lastId 
+        ? { ...baseQuery, _id: { $gt: lastId } }
+        : { ...baseQuery };
 
-    for (const event of events) {
-      try {
-        // Get user's timezone from settings (default to UTC)
-        const timezone = 'UTC'; // TODO: Get from UserSettings
+      // Fetch batch of events
+      const events = await EventModel.find(query)
+        .sort({ _id: 1 })
+        .limit(BATCH_SIZE)
+        .populate('petId', 'name')
+        .lean()
+        .exec();
 
-        // Get reminder minutes based on preset
-        const reminderMinutes = this.getReminderMinutesForPreset(event.reminderPreset ?? 'standard');
-
-        // Get pet name if available
-        let petName: string | undefined;
-        if (event.petId && typeof event.petId === 'object' && 'name' in event.petId) {
-          petName = (event.petId as { name: string }).name;
-        }
-
-        const result = await this.scheduleReminders({
-          eventId: event._id.toString(),
-          userId: event.userId.toString(),
-          title: event.title,
-          eventType: event.type,
-          eventTitle: event.title,
-          startTime: new Date(event.startTime),
-          petName,
-          reminderMinutes,
-          timezone,
-        });
-
-        if (result.success) {
-          remindersScheduled += result.scheduledCount;
-        }
-        eventsProcessed++;
-
-      } catch (error) {
-        logger.error(`Error scheduling reminders for event ${event._id.toString()}:`, error);
+      if (events.length === 0) {
+        hasMore = false;
+        break;
       }
+
+      // Process batch
+      for (const event of events) {
+        try {
+          const userIdStr = event.userId.toString();
+          
+          // Get user's timezone from cache or fetch from settings
+          let timezone = userTimezoneCache.get(userIdStr);
+          if (timezone === undefined) {
+            const userSettings = await UserSettingsModel.findOne({
+              userId: event.userId,
+            }).select('timezone').lean().exec();
+            timezone = userSettings?.timezone ?? DEFAULT_TIMEZONE;
+            userTimezoneCache.set(userIdStr, timezone);
+          }
+
+          // Get reminder minutes based on preset
+          const reminderMinutes = this.getReminderMinutesForPreset(event.reminderPreset ?? 'standard');
+
+          // Get pet name if available
+          let petName: string | undefined;
+          if (event.petId && typeof event.petId === 'object' && 'name' in event.petId) {
+            petName = (event.petId as { name: string }).name;
+          }
+
+          const result = await this.scheduleReminders({
+            eventId: event._id.toString(),
+            userId: userIdStr,
+            title: event.title,
+            eventType: event.type,
+            eventTitle: event.title,
+            startTime: new Date(event.startTime),
+            petName,
+            reminderMinutes,
+            timezone,
+          });
+
+          if (result.success) {
+            remindersScheduled += result.scheduledCount;
+          }
+          eventsProcessed++;
+
+        } catch (error) {
+          logger.error(`Error scheduling reminders for event ${event._id.toString()}:`, error);
+        }
+      }
+
+      // Update cursor for next batch
+      const lastEvent = events[events.length - 1];
+      if (lastEvent) {
+        lastId = lastEvent._id;
+      }
+
+      // Check if we got less than batch size (no more results)
+      if (events.length < BATCH_SIZE) {
+        hasMore = false;
+      }
+
+      logger.info(`Processed batch of ${events.length} events (total: ${eventsProcessed})`);
     }
 
     logger.info(`Processed ${eventsProcessed} events, scheduled ${remindersScheduled} reminders`);

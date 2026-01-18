@@ -6,6 +6,7 @@ import {
   IRecurrenceRuleDocument,
   PetModel,
   RecurrenceRuleModel,
+  UserSettingsModel,
 } from '../models/mongoose';
 import { logger } from '../utils/logger';
 import {
@@ -14,6 +15,9 @@ import {
   UpdateRecurrenceRuleRequest,
 } from '../types/api';
 import { parseUTCDate } from '../lib/dateUtils';
+
+// Default event time if user settings not available
+const DEFAULT_EVENT_TIME = '09:00';
 
 /**
  * Validates if a string is a valid IANA timezone identifier
@@ -97,10 +101,14 @@ function applyTimeToDateInTimezone(
 
 /**
  * Calculate all dates for a recurrence rule within horizon
+ * @param rule - The recurrence rule
+ * @param horizonDays - Number of days to look ahead
+ * @param userDefaultTime - User's default event time from settings (HH:MM format)
  */
 function calculateRecurrenceDates(
   rule: IRecurrenceRuleDocument,
-  horizonDays: number
+  horizonDays: number,
+  userDefaultTime: string = DEFAULT_EVENT_TIME
 ): Date[] {
   const dates: Date[] = [];
   const startDate = new Date(rule.startDate);
@@ -119,9 +127,10 @@ function calculateRecurrenceDates(
   });
 
   // Get times to generate for each day
+  // Priority: rule.dailyTimes > userDefaultTime > DEFAULT_EVENT_TIME
   const times = rule.dailyTimes?.length
     ? rule.dailyTimes
-    : ['09:00']; // Default time if none specified
+    : [userDefaultTime];
 
   const currentDate = new Date(startDate);
   const interval = rule.interval ?? 1;
@@ -478,6 +487,7 @@ export class RecurrenceService {
   /**
    * Generate events for a recurrence rule up to the horizon
    * Uses upsert to ensure idempotency
+   * Fetches user's default event time from settings
    */
   async generateEvents(userId: string, ruleId: string): Promise<number> {
     const rule = await RecurrenceRuleModel.findOne({
@@ -490,8 +500,14 @@ export class RecurrenceService {
       return 0;
     }
 
+    // Get user's default event time from settings
+    const userSettings = await UserSettingsModel.findOne({
+      userId: new Types.ObjectId(userId),
+    }).exec();
+    const userDefaultTime = userSettings?.defaultEventTime ?? DEFAULT_EVENT_TIME;
+
     const horizonDays = getHorizonForFrequency(rule.frequency, rule.interval);
-    const datesToGenerate = calculateRecurrenceDates(rule, horizonDays);
+    const datesToGenerate = calculateRecurrenceDates(rule, horizonDays, userDefaultTime);
 
     let createdCount = 0;
 

@@ -1,7 +1,13 @@
 import { Types } from 'mongoose';
+import { z } from 'zod';
 import { EXPO_PUSH_API_URL, expoPushConfig, isExpoPushErrorCode } from '../config/expoPushConfig.js';
 import { logger } from '../utils/logger.js';
 import { UserDeviceModel } from '../models/mongoose/userDevices.js';
+
+// Expo API limits
+const EXPO_BATCH_SIZE = 100; // Expo allows max 100 messages per request
+const MAX_RETRIES = 3;
+const INITIAL_RETRY_DELAY_MS = 1000; // 1 second
 
 export interface PushNotificationPayload {
   title: string;
@@ -27,23 +33,46 @@ export interface ExpoPushMessage {
   };
 }
 
-export interface ExpoPushResponse {
-  data: {
-    status: 'ok' | 'error';
-    message?: string;
-    details?: {
-      error?: string;
-      fault?: string;
-    };
-    pushNotificationId?: string;
-  }[];
-}
+// Zod schema for runtime validation of Expo API response
+const ExpoPushResultSchema = z.object({
+  status: z.enum(['ok', 'error']),
+  message: z.string().optional(),
+  details: z.object({
+    error: z.string().optional(),
+    fault: z.string().optional(),
+  }).optional(),
+  pushNotificationId: z.string().optional(),
+});
+
+const ExpoPushResponseSchema = z.object({
+  data: z.array(ExpoPushResultSchema),
+});
+
+export type ExpoPushResponse = z.infer<typeof ExpoPushResponseSchema>;
 
 export interface PushNotificationResult {
   success: boolean;
   messageId?: string;
   error?: string;
   shouldRemoveToken?: boolean;
+}
+
+/**
+ * Utility to wait for a specified duration
+ */
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Chunk an array into smaller arrays of specified size
+ */
+function chunkArray<T>(array: T[], chunkSize: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < array.length; i += chunkSize) {
+    chunks.push(array.slice(i, i + chunkSize));
+  }
+  return chunks;
 }
 
 /**
@@ -261,9 +290,68 @@ export class PushNotificationService {
   }
 
   /**
-   * Internal method to send messages to Expo Push API
+   * Internal method to send messages to Expo Push API with batching and retry
+   * Handles Expo's 100 message limit per request and implements exponential backoff
    */
   private async sendToExpo(messages: ExpoPushMessage[]): Promise<ExpoPushResponse> {
+    if (messages.length === 0) {
+      return { data: [] };
+    }
+
+    // Split messages into batches of EXPO_BATCH_SIZE (100)
+    const batches = chunkArray(messages, EXPO_BATCH_SIZE);
+    const allResults: ExpoPushResponse['data'] = [];
+
+    for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+      const batch = batches[batchIndex];
+      if (!batch || batch.length === 0) continue;
+
+      let lastError: Error | null = null;
+      let batchResult: ExpoPushResponse | null = null;
+
+      // Retry logic with exponential backoff
+      for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        try {
+          batchResult = await this.sendBatchToExpo(batch);
+          break; // Success, exit retry loop
+        } catch (error) {
+          lastError = error instanceof Error ? error : new Error(String(error));
+          
+          // Check if error is retryable
+          const isRetryable = this.isRetryableError(lastError);
+          
+          if (!isRetryable || attempt === MAX_RETRIES - 1) {
+            // Non-retryable error or last attempt
+            logger.error(`Push notification batch ${batchIndex + 1}/${batches.length} failed after ${attempt + 1} attempts: ${lastError.message}`);
+            break;
+          }
+
+          // Calculate exponential backoff delay
+          const delayMs = INITIAL_RETRY_DELAY_MS * Math.pow(2, attempt);
+          logger.warn(`Push notification batch ${batchIndex + 1} attempt ${attempt + 1} failed, retrying in ${delayMs}ms: ${lastError.message}`);
+          await delay(delayMs);
+        }
+      }
+
+      if (batchResult) {
+        allResults.push(...batchResult.data);
+      } else {
+        // All retries failed, add error results for this batch
+        const errorResults = batch.map(() => ({
+          status: 'error' as const,
+          message: lastError?.message ?? 'Unknown error after retries',
+        }));
+        allResults.push(...errorResults);
+      }
+    }
+
+    return { data: allResults };
+  }
+
+  /**
+   * Send a single batch to Expo API with Zod validation
+   */
+  private async sendBatchToExpo(messages: ExpoPushMessage[]): Promise<ExpoPushResponse> {
     const response = await fetch(EXPO_PUSH_API_URL, {
       method: 'POST',
       headers: {
@@ -279,8 +367,42 @@ export class PushNotificationService {
       throw new Error(`Expo API error: ${response.status} - ${errorText}`);
     }
 
-    const data = await response.json() as ExpoPushResponse;
-    return data;
+    const rawData = await response.json();
+    
+    // Runtime validation with Zod
+    const parseResult = ExpoPushResponseSchema.safeParse(rawData);
+    
+    if (!parseResult.success) {
+      logger.error('Invalid Expo API response format:', parseResult.error.issues);
+      throw new Error(`Invalid Expo API response: ${parseResult.error.message}`);
+    }
+
+    return parseResult.data;
+  }
+
+  /**
+   * Check if an error is retryable
+   */
+  private isRetryableError(error: Error): boolean {
+    const message = error.message.toLowerCase();
+    
+    // Retryable: rate limits, timeouts, server errors
+    const retryablePatterns = [
+      'rate limit',
+      'too many requests',
+      'timeout',
+      'timed out',
+      'econnreset',
+      'econnrefused',
+      'socket hang up',
+      '429',
+      '500',
+      '502',
+      '503',
+      '504',
+    ];
+
+    return retryablePatterns.some(pattern => message.includes(pattern));
   }
 }
 

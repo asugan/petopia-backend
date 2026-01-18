@@ -7,6 +7,7 @@ import { checkFeedingReminders } from './feedingReminderChecker.js';
 import { logger } from '../utils/logger.js';
 
 let scheduledJobs: ScheduledTask[] = [];
+let isShuttingDown = false;
 
 /**
  * Initialize all scheduled jobs
@@ -20,6 +21,9 @@ export function initializeScheduler(): void {
   }
 
   logger.info('Initializing job scheduler...');
+
+  // Register graceful shutdown handlers
+  registerGracefulShutdown();
 
   // Recurrence Generator - Runs daily at 2:00 AM
   const recurrenceJob = cron.schedule('0 2 * * *', async () => {
@@ -105,14 +109,56 @@ export function initializeScheduler(): void {
  * Useful for testing or graceful shutdown
  */
 export function stopScheduler(): void {
+  if (isShuttingDown) {
+    logger.warn('Scheduler is already shutting down...');
+    return;
+  }
+  
+  isShuttingDown = true;
   logger.info('Stopping job scheduler...');
+  
   for (const job of scheduledJobs) {
-    // job.stop() returns void but typescript may infer Promise in some contexts
-    // eslint-disable-next-line @typescript-eslint/no-floating-promises
-    job.stop();
+    void job.stop();
   }
   scheduledJobs = [];
+  isShuttingDown = false;
   logger.info('Scheduler stopped');
+}
+
+/**
+ * Register handlers for graceful shutdown on SIGTERM and SIGINT
+ */
+function registerGracefulShutdown(): void {
+  const shutdownHandler = (signal: string) => {
+    logger.info(`Received ${signal} signal. Initiating graceful shutdown...`);
+    
+    stopScheduler();
+    
+    // Give some time for cleanup, then exit
+    setTimeout(() => {
+      logger.info('Graceful shutdown complete. Exiting...');
+      process.exit(0);
+    }, 1000);
+  };
+
+  // Handle SIGTERM (sent by container orchestrators like Docker/Kubernetes)
+  process.on('SIGTERM', () => shutdownHandler('SIGTERM'));
+  
+  // Handle SIGINT (Ctrl+C in terminal)
+  process.on('SIGINT', () => shutdownHandler('SIGINT'));
+  
+  // Handle uncaught exceptions - stop scheduler before crash
+  process.on('uncaughtException', (error) => {
+    logger.error('Uncaught exception, stopping scheduler:', error);
+    stopScheduler();
+  });
+
+  // Handle unhandled promise rejections
+  process.on('unhandledRejection', (reason) => {
+    logger.error('Unhandled promise rejection:', reason);
+  });
+  
+  logger.info('Graceful shutdown handlers registered');
 }
 
 /**
