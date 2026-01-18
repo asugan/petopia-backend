@@ -96,6 +96,46 @@ export async function optionalAuth(
 }
 
 /**
+ * Middleware that requires a valid internal API key.
+ * Used for internal/cron endpoints that should not be accessible to regular users.
+ * The API key should be passed in the X-Internal-API-Key header.
+ */
+export function requireInternalApiKey(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void {
+  const apiKey = req.headers['x-internal-api-key'];
+  const expectedKey = process.env.INTERNAL_API_KEY;
+
+  if (!expectedKey) {
+    // eslint-disable-next-line no-console
+    console.error('INTERNAL_API_KEY environment variable is not configured');
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'CONFIG_ERROR',
+        message: 'Internal API key not configured',
+      },
+    });
+    return;
+  }
+
+  if (!apiKey || apiKey !== expectedKey) {
+    res.status(403).json({
+      success: false,
+      error: {
+        code: 'FORBIDDEN',
+        message: 'Invalid or missing API key',
+      },
+    });
+    return;
+  }
+
+  next();
+}
+
+/**
  * Helper function to get authenticated user ID with proper error handling
  * @param req - AuthenticatedRequest object
  * @returns User ID string

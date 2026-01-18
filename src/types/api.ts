@@ -338,3 +338,85 @@ export interface UpdateUserSettingsRequest {
 export interface UpdateBaseCurrencyRequest {
   baseCurrency: 'TRY' | 'USD' | 'EUR' | 'GBP';
 }
+
+// Recurrence Rule Types
+export type { RecurrenceFrequency } from '../models/mongoose/types';
+
+export interface CreateRecurrenceRuleRequest {
+  petId: string;
+  title: string;
+  description?: string;
+  type: EventType;
+  location?: string;
+  notes?: string;
+  reminder?: boolean;
+  reminderPreset?: ReminderPresetKey;
+
+  // Medication/Vaccination fields
+  vaccineName?: string;
+  vaccineManufacturer?: string;
+  batchNumber?: string;
+  medicationName?: string;
+  dosage?: string;
+
+  // Recurrence settings
+  frequency: 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom' | 'times_per_day';
+  interval?: number;
+  daysOfWeek?: number[];
+  dayOfMonth?: number;
+  timesPerDay?: number;
+  dailyTimes?: string[];
+
+  // Duration settings
+  eventDurationMinutes?: number;
+
+  // Timezone
+  timezone: string;
+
+  // Date boundaries
+  startDate: string;
+  endDate?: string;
+}
+
+export interface UpdateRecurrenceRuleRequest {
+  title?: string;
+  description?: string;
+  type?: EventType;
+  location?: string;
+  notes?: string;
+  reminder?: boolean;
+  reminderPreset?: ReminderPresetKey;
+
+  // Medication/Vaccination fields
+  vaccineName?: string;
+  vaccineManufacturer?: string;
+  batchNumber?: string;
+  medicationName?: string;
+  dosage?: string;
+
+  // Recurrence settings
+  frequency?: 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom' | 'times_per_day';
+  interval?: number;
+  daysOfWeek?: number[];
+  dayOfMonth?: number;
+  timesPerDay?: number;
+  dailyTimes?: string[];
+
+  // Duration settings
+  eventDurationMinutes?: number;
+
+  // Timezone
+  timezone?: string;
+
+  // Date boundaries
+  startDate?: string;
+  endDate?: string | null;
+
+  // Management
+  isActive?: boolean;
+}
+
+export interface RecurrenceRuleQueryParams extends PaginationParams {
+  isActive?: boolean;
+  petId?: string;
+}

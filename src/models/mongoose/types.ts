@@ -23,6 +23,7 @@ export type EventType =
 
 export type ReminderPresetKey = 'standard' | 'compact' | 'minimal';
 export type EventStatus = 'upcoming' | 'completed' | 'cancelled' | 'missed';
+export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom' | 'times_per_day';
 
 // Pet Document Interface
 export interface IPetDocument extends Document {
@@ -94,6 +95,11 @@ export interface IEventDocument extends Document {
   medicationName?: string;
   dosage?: string;
   frequency?: string;
+  // Recurrence fields
+  recurrenceRuleId?: Types.ObjectId;
+  seriesIndex?: number;
+  isException?: boolean;
+  scheduledNotificationIds?: string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -223,6 +229,54 @@ export interface IUserSettingsDocument extends Document {
     endHour: number;
     endMinute: number;
   };
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Recurrence Rule Document Interface
+export interface IRecurrenceRuleDocument extends Document {
+  _id: Types.ObjectId;
+  userId: Types.ObjectId;
+  petId: Types.ObjectId;
+
+  // Event template data
+  title: string;
+  description?: string;
+  type: EventType;
+  location?: string;
+  notes?: string;
+  reminder: boolean;
+  reminderPreset?: ReminderPresetKey;
+
+  // Medication/Vaccination fields
+  vaccineName?: string;
+  vaccineManufacturer?: string;
+  batchNumber?: string;
+  medicationName?: string;
+  dosage?: string;
+
+  // Recurrence settings
+  frequency: RecurrenceFrequency;
+  interval: number;
+  daysOfWeek?: number[];
+  dayOfMonth?: number;
+  timesPerDay?: number;
+  dailyTimes?: string[];
+
+  // Duration settings
+  eventDurationMinutes?: number;
+
+  // Timezone
+  timezone: string;
+
+  // Date boundaries
+  startDate: Date;
+  endDate?: Date;
+
+  // Management
+  isActive: boolean;
+  lastGeneratedDate?: Date;
+
   createdAt: Date;
   updatedAt: Date;
 }

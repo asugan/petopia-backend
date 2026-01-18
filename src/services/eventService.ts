@@ -197,6 +197,7 @@ export class EventService {
 
     const whereClause: QueryFilter<IEventDocument> = {
       userId: new Types.ObjectId(userId),
+      status: 'upcoming',
       startTime: {
         $gte: new Date(boundaries.gte),
         $lte: new Date(boundaries.lte)

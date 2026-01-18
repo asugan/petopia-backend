@@ -28,6 +28,11 @@ const eventSchema = new Schema<IEventDocument>({
   medicationName: String,
   dosage: String,
   frequency: String,
+  // Recurrence fields
+  recurrenceRuleId: { type: Schema.Types.ObjectId, ref: 'RecurrenceRule', index: true },
+  seriesIndex: Number,
+  isException: { type: Boolean, default: false },
+  scheduledNotificationIds: [String],
 }, {
   timestamps: true
 });
@@ -35,5 +40,15 @@ const eventSchema = new Schema<IEventDocument>({
 // Compound indexes
 eventSchema.index({ userId: 1, petId: 1 });
 eventSchema.index({ userId: 1, startTime: 1 });
+
+// Unique index for idempotent event generation (only for recurring events)
+eventSchema.index(
+  { recurrenceRuleId: 1, startTime: 1 },
+  {
+    unique: true,
+    sparse: true,
+    partialFilterExpression: { recurrenceRuleId: { $exists: true, $ne: null } }
+  }
+);
 
 export const EventModel = model<IEventDocument>('Event', eventSchema);
