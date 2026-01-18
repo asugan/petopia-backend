@@ -201,6 +201,33 @@ export class RecurrenceController {
       next(error);
     }
   };
+  
+  // POST /api/recurrence-rules/:id/exceptions - Add an exception (exclude a date)
+  addException = async (
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const userId = requireAuth(req);
+      const { id } = req.params;
+      const { date } = req.body as { date: string };
+
+      if (!id || !date) {
+        throw createError('Recurrence rule ID and date are required', 400, 'MISSING_FIELDS');
+      }
+
+      const success = await this.recurrenceService.addException(userId, id, new Date(date));
+
+      if (!success) {
+        throw createError('Failed to add exception or rule not found', 404, 'EXCEPTION_FAILED');
+      }
+
+      successResponse(res, { message: 'Exception added successfully' });
+    } catch (error) {
+      next(error);
+    }
+  };
 
   // POST /api/recurrence-rules/generate-all - Generate events for all active rules (for cron job)
   // This endpoint is protected by requireInternalApiKey middleware in routes

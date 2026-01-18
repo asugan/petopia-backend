@@ -276,6 +276,7 @@ export interface IRecurrenceRuleDocument extends Document {
   // Management
   isActive: boolean;
   lastGeneratedDate?: Date;
+  excludedDates?: Date[];
 
   createdAt: Date;
   updatedAt: Date;

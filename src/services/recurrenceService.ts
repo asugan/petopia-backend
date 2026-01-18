@@ -7,6 +7,7 @@ import {
   PetModel,
   RecurrenceRuleModel,
 } from '../models/mongoose';
+import { logger } from '../utils/logger';
 import {
   CreateRecurrenceRuleRequest,
   RecurrenceRuleQueryParams,
@@ -32,7 +33,7 @@ function isValidTimezone(tz: string): boolean {
  */
 function getHorizonForFrequency(
   frequency: string,
-  interval: number = 1
+  interval = 1
 ): number {
   switch (frequency) {
     case 'times_per_day':
@@ -110,13 +111,20 @@ function calculateRecurrenceDates(
   // Determine the effective end date
   const effectiveEnd = endDate && endDate < horizonEnd ? endDate : horizonEnd;
 
+  // Get excluded dates (normalized to minutes for comparison)
+  const excludedTimes = (rule.excludedDates ?? []).map(d => {
+    const date = new Date(d);
+    date.setSeconds(0, 0);
+    return date.getTime();
+  });
+
   // Get times to generate for each day
   const times = rule.dailyTimes?.length
     ? rule.dailyTimes
     : ['09:00']; // Default time if none specified
 
-  let currentDate = new Date(startDate);
-  const interval = rule.interval || 1;
+  const currentDate = new Date(startDate);
+  const interval = rule.interval ?? 1;
 
   // For weekly recurrence with interval > 1, we need to track week numbers
   const startWeekNumber = Math.floor(startDate.getTime() / (7 * 24 * 60 * 60 * 1000));
@@ -137,7 +145,7 @@ function calculateRecurrenceDates(
         
         // Only include if we're in the correct interval week
         if (weeksSinceStart >= 0 && weeksSinceStart % interval === 0) {
-          if (rule.daysOfWeek?.length) {
+          if (rule.daysOfWeek && rule.daysOfWeek.length > 0) {
             const dayOfWeek = currentDate.getUTCDay();
             shouldInclude = rule.daysOfWeek.includes(dayOfWeek);
           } else {
@@ -185,13 +193,14 @@ function calculateRecurrenceDates(
           currentDate.getUTCDate() === startDate.getUTCDate();
         break;
 
-      case 'custom':
+      case 'custom': {
         // Every N days from start
         const diffDays = Math.floor(
           (currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
         );
         shouldInclude = diffDays % interval === 0;
         break;
+      }
     }
 
     if (shouldInclude) {
@@ -204,6 +213,14 @@ function calculateRecurrenceDates(
             time,
             rule.timezone
           );
+
+          // Skip if this specific occurrence (date + time) is excluded
+          const normalizedEventDate = new Date(eventDate);
+          normalizedEventDate.setSeconds(0, 0);
+          if (excludedTimes.includes(normalizedEventDate.getTime())) {
+            continue;
+          }
+
           if (eventDate >= new Date() && eventDate <= effectiveEnd) {
             dates.push(eventDate);
           }
@@ -216,8 +233,14 @@ function calculateRecurrenceDates(
           time,
           rule.timezone
         );
-        if (eventDate >= new Date() && eventDate <= effectiveEnd) {
-          dates.push(eventDate);
+
+        // Skip if this specific occurrence (date + time) is excluded
+        const normalizedEventDate = new Date(eventDate);
+        normalizedEventDate.setSeconds(0, 0);
+        if (!excludedTimes.includes(normalizedEventDate.getTime())) {
+          if (eventDate >= new Date() && eventDate <= effectiveEnd) {
+            dates.push(eventDate);
+          }
         }
       }
     }
@@ -612,13 +635,43 @@ export class RecurrenceService {
         eventsCreated += created;
         rulesProcessed++;
       } catch (error) {
-        console.error(
-          `Error generating events for rule ${rule._id}:`,
+        logger.error(
+          `Error generating events for rule ${rule._id.toString()}`,
           error
         );
       }
     }
 
     return { rulesProcessed, eventsCreated };
+  }
+
+  /**
+   * Mark a specific occurrence as excluded
+   */
+  async addException(
+    userId: string,
+    ruleId: string,
+    date: Date
+  ): Promise<boolean> {
+    // Normalize date to minutes
+    const normalizedDate = new Date(date);
+    normalizedDate.setSeconds(0, 0);
+
+    const result = await RecurrenceRuleModel.updateOne(
+      { _id: ruleId, userId: new Types.ObjectId(userId) },
+      { $addToSet: { excludedDates: normalizedDate } }
+    );
+
+    if (result.modifiedCount > 0) {
+      // Delete the existing event for this occurrence if it exists
+      await EventModel.deleteOne({
+        recurrenceRuleId: new Types.ObjectId(ruleId),
+        userId: new Types.ObjectId(userId),
+        startTime: normalizedDate,
+      });
+      return true;
+    }
+
+    return false;
   }
 }

@@ -88,6 +88,10 @@ const updateRecurrenceRuleSchema = createRecurrenceRuleSchema.partial().extend({
   endDate: z.string().datetime('Invalid end date format').nullable().optional(),
 });
 
+const addExceptionSchema = z.object({
+  date: z.string().datetime('Invalid date format'),
+});
+
 // Routes
 router.get('/', recurrenceController.getRules);
 
@@ -111,6 +115,13 @@ router.put(
 router.delete('/:id', validateObjectId(), recurrenceController.deleteRule);
 
 router.post('/:id/regenerate', validateObjectId(), recurrenceController.regenerateEvents);
+
+router.post(
+  '/:id/exceptions',
+  validateObjectId(),
+  validateRequest(addExceptionSchema),
+  recurrenceController.addException
+);
 
 // Internal endpoint for cron job - requires internal API key, not user auth
 router.post('/generate-all', requireInternalApiKey, recurrenceController.generateAllEvents);

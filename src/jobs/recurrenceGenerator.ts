@@ -10,6 +10,7 @@
  */
 
 import { RecurrenceService } from '../services/recurrenceService';
+import { logger } from '../utils/logger';
 
 // Simple mutex to prevent concurrent runs
 let isRunning = false;
@@ -25,7 +26,7 @@ export async function runRecurrenceGenerator(): Promise<{
   error?: string;
 }> {
   if (isRunning) {
-    console.log('[RecurrenceGenerator] Job already running, skipping...');
+    logger.info('[RecurrenceGenerator] Job already running, skipping...');
     return {
       success: false,
       rulesProcessed: 0,
@@ -37,14 +38,14 @@ export async function runRecurrenceGenerator(): Promise<{
   isRunning = true;
   const startTime = Date.now();
 
-  console.log('[RecurrenceGenerator] Starting job...');
+  logger.info('[RecurrenceGenerator] Starting job...');
 
   try {
     const recurrenceService = new RecurrenceService();
     const result = await recurrenceService.generateEventsForAllActiveRules();
 
     const duration = Date.now() - startTime;
-    console.log(
+    logger.info(
       `[RecurrenceGenerator] Completed in ${duration}ms. ` +
       `Rules processed: ${result.rulesProcessed}, Events created: ${result.eventsCreated}`
     );
@@ -56,7 +57,7 @@ export async function runRecurrenceGenerator(): Promise<{
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('[RecurrenceGenerator] Job failed:', errorMessage);
+    logger.error('[RecurrenceGenerator] Job failed:', errorMessage);
 
     return {
       success: false,
@@ -78,7 +79,7 @@ export async function runRecurrenceGenerator(): Promise<{
  * - Cloud Scheduler
  */
 export function scheduleRecurrenceGenerator(intervalMs: number = 24 * 60 * 60 * 1000): NodeJS.Timeout {
-  console.log(`[RecurrenceGenerator] Scheduling job to run every ${intervalMs / 1000 / 60 / 60} hours`);
+  logger.info(`[RecurrenceGenerator] Scheduling job to run every ${intervalMs / 1000 / 60 / 60} hours`);
   
   // Run immediately on startup
   void runRecurrenceGenerator();

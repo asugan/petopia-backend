@@ -50,6 +50,7 @@ const recurrenceRuleSchema = new Schema<IRecurrenceRuleDocument>({
   // Management
   isActive: { type: Boolean, default: true },
   lastGeneratedDate: Date,
+  excludedDates: [{ type: Date }],
 }, {
   timestamps: true
 });
