@@ -27,15 +27,15 @@ router.post(
   async (req: AuthenticatedRequest, res, next) => {
     try {
       const userId = requireAuth(req);
-      const { expoPushToken, deviceId, platform, deviceName, appVersion } = req.body;
+      const validatedBody = req.body as z.infer<typeof registerDeviceSchema>;
 
       await pushNotificationService.registerDevice(
         userId,
-        expoPushToken,
-        deviceId,
-        platform,
-        deviceName,
-        appVersion
+        validatedBody.expoPushToken,
+        validatedBody.deviceId,
+        validatedBody.platform,
+        validatedBody.deviceName,
+        validatedBody.appVersion
       );
 
       res.json({
@@ -55,17 +55,17 @@ router.delete(
   async (req: AuthenticatedRequest, res, next) => {
     try {
       const userId = requireAuth(req);
-      const { deviceId } = req.body;
+      const validatedBody = req.body as z.infer<typeof deactivateDeviceSchema>;
 
       // Verify the device belongs to this user
       const { UserDeviceModel } = await import('../models/mongoose/index.js');
-      const device = await UserDeviceModel.findOne({ deviceId, userId });
+      const device = await UserDeviceModel.findOne({ deviceId: validatedBody.deviceId, userId });
 
       if (!device) {
         throw createError('Device not found', 404, 'DEVICE_NOT_FOUND');
       }
 
-      await pushNotificationService.deactivateDevice(deviceId);
+      await pushNotificationService.deactivateDevice(validatedBody.deviceId);
 
       res.json({
         success: true,
@@ -97,36 +97,41 @@ router.get('/devices', async (req: AuthenticatedRequest, res, next) => {
   }
 });
 
-// POST /api/push/test - Send a test notification
-router.post('/test', async (req: AuthenticatedRequest, res, next) => {
-  try {
-    const userId = requireAuth(req);
-    const { title, body } = req.body;
-
-    if (!title || !body) {
-      throw createError('Title and body are required', 400, 'MISSING_FIELDS');
-    }
-
-    const result = await pushNotificationService.sendToUser(userId, {
-      title,
-      body,
-      data: { screen: 'home' },
-      sound: 'default',
-      priority: 'high',
-      channelId: 'event-reminders',
-    });
-
-    res.json({
-      success: result.sent > 0,
-      data: {
-        sent: result.sent,
-        failed: result.failed,
-        tokensToRemove: result.tokensToRemove,
-      },
-    });
-  } catch (error) {
-    next(error);
-  }
+const testNotificationSchema = z.object({
+  title: z.string().min(1, 'Title is required'),
+  body: z.string().min(1, 'Body is required'),
 });
+
+// POST /api/push/test - Send a test notification
+router.post(
+  '/test',
+  validateRequest(testNotificationSchema, 'body'),
+  async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const userId = requireAuth(req);
+      const validatedBody = req.body as z.infer<typeof testNotificationSchema>;
+
+      const result = await pushNotificationService.sendToUser(userId, {
+        title: validatedBody.title,
+        body: validatedBody.body,
+        data: { screen: 'home' },
+        sound: 'default',
+        priority: 'high',
+        channelId: 'event-reminders',
+      });
+
+      res.json({
+        success: result.sent > 0,
+        data: {
+          sent: result.sent,
+          failed: result.failed,
+          tokensToRemove: result.tokensToRemove,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 export default router;

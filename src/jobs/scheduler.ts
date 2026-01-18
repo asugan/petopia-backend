@@ -2,6 +2,8 @@ import cron, { type ScheduledTask } from 'node-cron';
 import { runRecurrenceGenerator } from './recurrenceGenerator.js';
 import { eventReminderService } from '../services/eventReminderService.js';
 import { markMissedEvents } from './eventStatusUpdater.js';
+import { checkBudgetAlerts } from './budgetAlertChecker.js';
+import { checkFeedingReminders } from './feedingReminderChecker.js';
 import { logger } from '../utils/logger.js';
 
 let scheduledJobs: ScheduledTask[] = [];
@@ -29,7 +31,7 @@ export function initializeScheduler(): void {
       logger.error('[Scheduler] Recurrence generator failed:', error);
     }
   }, {
-    timezone: process.env.SCHEDULER_TIMEZONE || 'UTC',
+    timezone: process.env.SCHEDULER_TIMEZONE ?? 'UTC',
   });
   scheduledJobs.push(recurrenceJob);
 
@@ -44,7 +46,7 @@ export function initializeScheduler(): void {
       logger.error('[Scheduler] Reminder scheduler failed:', error);
     }
   }, {
-    timezone: process.env.SCHEDULER_TIMEZONE || 'UTC',
+    timezone: process.env.SCHEDULER_TIMEZONE ?? 'UTC',
   });
   scheduledJobs.push(reminderJob);
 
@@ -61,9 +63,39 @@ export function initializeScheduler(): void {
       logger.error('[Scheduler] Missed event checker failed:', error);
     }
   }, {
-    timezone: process.env.SCHEDULER_TIMEZONE || 'UTC',
+    timezone: process.env.SCHEDULER_TIMEZONE ?? 'UTC',
   });
   scheduledJobs.push(missedEventJob);
+
+  // Budget Alert Checker - Runs every hour
+  // Checks budget thresholds and sends push notifications
+  const budgetAlertJob = cron.schedule('0 * * * *', async () => {
+    logger.info('[Scheduler] Running budget alert checker job...');
+    try {
+      const result = await checkBudgetAlerts();
+      logger.info(`[Scheduler] Budget alert checker completed: ${result.processed} processed, ${result.sent} sent, ${result.failed} failed`);
+    } catch (error) {
+      logger.error('[Scheduler] Budget alert checker failed:', error);
+    }
+  }, {
+    timezone: process.env.SCHEDULER_TIMEZONE ?? 'UTC',
+  });
+  scheduledJobs.push(budgetAlertJob);
+
+  // Feeding Reminder Checker - Runs every 15 minutes
+  // Checks pending feeding reminders and sends push notifications
+  const feedingReminderJob = cron.schedule('*/15 * * * *', async () => {
+    logger.info('[Scheduler] Running feeding reminder checker job...');
+    try {
+      const result = await checkFeedingReminders();
+      logger.info(`[Scheduler] Feeding reminder checker completed: ${result.checked} checked, ${result.sent} sent, ${result.failed} failed, ${result.retried} retried`);
+    } catch (error) {
+      logger.error('[Scheduler] Feeding reminder checker failed:', error);
+    }
+  }, {
+    timezone: process.env.SCHEDULER_TIMEZONE ?? 'UTC',
+  });
+  scheduledJobs.push(feedingReminderJob);
 
   logger.info(`Scheduler initialized with ${scheduledJobs.length} jobs`);
 }
@@ -75,6 +107,8 @@ export function initializeScheduler(): void {
 export function stopScheduler(): void {
   logger.info('Stopping job scheduler...');
   for (const job of scheduledJobs) {
+    // job.stop() returns void but typescript may infer Promise in some contexts
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
     job.stop();
   }
   scheduledJobs = [];
@@ -98,6 +132,14 @@ export async function runJob(jobName: string): Promise<{ success: boolean; resul
       const count = await markMissedEvents();
       return { success: true, result: { missedEventsMarked: count } };
     }
+    case 'budget-alert-checker': {
+      const result = await checkBudgetAlerts();
+      return { success: true, result };
+    }
+    case 'feeding-reminder-checker': {
+      const result = await checkFeedingReminders();
+      return { success: true, result };
+    }
     default:
       return { success: false, error: `Unknown job: ${jobName}` };
   }
@@ -114,6 +156,12 @@ export function getSchedulerStatus(): {
   return {
     isRunning: scheduledJobs.length > 0,
     jobsCount: scheduledJobs.length,
-    jobs: ['recurrence-generator', 'reminder-scheduler', 'missed-event-checker'],
+    jobs: [
+      'recurrence-generator',
+      'reminder-scheduler',
+      'missed-event-checker',
+      'budget-alert-checker',
+      'feeding-reminder-checker',
+    ],
   };
 }

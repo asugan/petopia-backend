@@ -79,7 +79,7 @@ export async function resetEventStatus(eventId: string): Promise<boolean> {
  * @param minutesBehind How many minutes behind to check (default: 0 = all missed)
  * @returns Array of event IDs that are missed
  */
-export async function getMissedEvents(minutesBehind: number = 0): Promise<string[]> {
+export async function getMissedEvents(minutesBehind = 0): Promise<string[]> {
   const now = new Date();
   const threshold = new Date(now.getTime() - minutesBehind * 60 * 1000);
 

@@ -2,7 +2,6 @@ import { Types } from 'mongoose';
 import { pushNotificationService } from './pushNotificationService.js';
 import { ScheduledNotificationModel } from '../models/mongoose/scheduledNotifications.js';
 import { EventModel } from '../models/mongoose/event.js';
-import { RecurrenceRuleModel } from '../models/mongoose/recurrenceRule.js';
 import { logger } from '../utils/logger.js';
 import { formatInTimeZone } from 'date-fns-tz';
 
@@ -33,7 +32,7 @@ export class EventReminderService {
    * Schedule reminders for an event
    */
   async scheduleReminders(config: EventReminderConfig): Promise<EventReminderResult> {
-    const { eventId, userId, title, eventType, eventTitle, startTime, petName, reminderMinutes, timezone } = config;
+    const { eventId, userId, eventType, eventTitle, startTime, petName, reminderMinutes, timezone } = config;
 
     // Get user's active devices
     const devices = await pushNotificationService.getUserActiveDevices(userId);
@@ -162,7 +161,7 @@ export class EventReminderService {
         const timezone = 'UTC'; // TODO: Get from UserSettings
 
         // Get reminder minutes based on preset
-        const reminderMinutes = this.getReminderMinutesForPreset(event.reminderPreset || 'standard');
+        const reminderMinutes = this.getReminderMinutesForPreset(event.reminderPreset ?? 'standard');
 
         // Get pet name if available
         let petName: string | undefined;
@@ -188,7 +187,7 @@ export class EventReminderService {
         eventsProcessed++;
 
       } catch (error) {
-        logger.error(`Error scheduling reminders for event ${event._id}:`, error);
+        logger.error(`Error scheduling reminders for event ${event._id.toString()}:`, error);
       }
     }
 
@@ -230,10 +229,7 @@ export class EventReminderService {
     };
 
     const result = presets[preset];
-    if (result !== undefined) {
-      return result;
-    }
-    return presets.standard as number[];
+    return result ?? presets.standard ?? [1440, 120, 60, 15];
   }
 
   /**
@@ -254,7 +250,7 @@ export class EventReminderService {
       other: '📅',
     };
 
-    return emojiMap[eventType] || '📅';
+    return emojiMap[eventType] ?? '📅';
   }
 }
 

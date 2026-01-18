@@ -14,6 +14,7 @@ export { ExchangeRateModel } from './exchangeRate';
 export { RecurrenceRuleModel } from './recurrenceRule';
 export { UserDeviceModel } from './userDevices';
 export { ScheduledNotificationModel } from './scheduledNotifications';
+export { FeedingNotificationModel } from './feedingNotification';
 
 // Export document interfaces
 export type {
@@ -32,5 +33,6 @@ export type {
   IRecurrenceRuleDocument,
   IUserDeviceDocument,
   IScheduledNotificationDocument,
+  IFeedingNotificationDocument,
   RecurrenceFrequency,
 } from './types';

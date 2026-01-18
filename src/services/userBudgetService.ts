@@ -418,3 +418,6 @@ export class UserBudgetService {
     return alerts;
   }
 }
+
+// Singleton instance
+export const userBudgetService = new UserBudgetService();

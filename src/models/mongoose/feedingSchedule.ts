@@ -9,6 +9,11 @@ const feedingScheduleSchema = new Schema<IFeedingScheduleDocument>({
   amount: { type: String, required: true },
   days: { type: String, required: true },
   isActive: { type: Boolean, default: true },
+  // Notification fields
+  remindersEnabled: { type: Boolean, default: false },
+  reminderMinutesBefore: { type: Number, default: 15 },
+  lastNotificationAt: { type: Date },
+  nextNotificationTime: { type: Date },
 }, {
   timestamps: true
 });

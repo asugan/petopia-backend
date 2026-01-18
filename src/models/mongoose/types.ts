@@ -114,6 +114,11 @@ export interface IFeedingScheduleDocument extends Document {
   amount: string;
   days: string;
   isActive: boolean;
+  // Notification fields
+  remindersEnabled?: boolean;
+  reminderMinutesBefore?: number;
+  lastNotificationAt?: Date;
+  nextNotificationTime?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -222,6 +227,7 @@ export interface IUserSettingsDocument extends Document {
   theme: 'light' | 'dark';
   notificationsEnabled: boolean;
   budgetNotificationsEnabled: boolean;
+  feedingRemindersEnabled: boolean;
   quietHoursEnabled: boolean;
   quietHours: {
     startHour: number;
@@ -310,6 +316,24 @@ export interface IScheduledNotificationDocument extends Document {
   retryCount: number;
   maxRetries: number;
   notificationId?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Feeding Notification Document Interface
+export interface IFeedingNotificationDocument extends Document {
+  _id: Types.ObjectId;
+  userId: Types.ObjectId;
+  scheduleId: Types.ObjectId;
+  petId: Types.ObjectId;
+  scheduledFor: Date;
+  sentAt?: Date;
+  status: 'pending' | 'sent' | 'failed' | 'cancelled';
+  expoPushToken: string;
+  notificationId?: string;
+  errorMessage?: string;
+  retryCount?: number;
+  maxRetries?: number;
   createdAt: Date;
   updatedAt: Date;
 }

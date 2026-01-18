@@ -1,5 +1,5 @@
 import { Types } from 'mongoose';
-import { expoPushConfig, EXPO_PUSH_API_URL, isExpoPushErrorCode } from '../config/expoPushConfig.js';
+import { EXPO_PUSH_API_URL, expoPushConfig, isExpoPushErrorCode } from '../config/expoPushConfig.js';
 import { logger } from '../utils/logger.js';
 import { UserDeviceModel } from '../models/mongoose/userDevices.js';
 
@@ -103,7 +103,7 @@ export class PushNotificationService {
         return { success: true, messageId: result.pushNotificationId };
       }
 
-      const error = result.details?.error || result.message || 'Unknown error';
+      const error = result.details?.error ?? result.message ?? 'Unknown error';
 
       if (isExpoPushErrorCode(error)) {
         const shouldRemove = error === 'DeviceNotRegistered' || error === 'InvalidCredentials';
@@ -145,12 +145,12 @@ export class PushNotificationService {
     try {
       const response = await this.sendToExpo(messages);
 
-      return response.data.map((result, index) => {
+      return response.data.map((result) => {
         if (result.status === 'ok' && result.pushNotificationId) {
           return { success: true, messageId: result.pushNotificationId };
         }
 
-        const error = result.details?.error || result.message || 'Unknown error';
+        const error = result.details?.error ?? result.message ?? 'Unknown error';
         const shouldRemove = error === 'DeviceNotRegistered' || error === 'InvalidCredentials';
 
         return { success: false, error, shouldRemoveToken: shouldRemove };
@@ -224,9 +224,9 @@ export class PushNotificationService {
       {
         userId: new Types.ObjectId(userId),
         expoPushToken,
-        deviceName: deviceName || undefined,
+        deviceName: deviceName ?? undefined,
         platform,
-        appVersion: appVersion || undefined,
+        appVersion: appVersion ?? undefined,
         lastActiveAt: new Date(),
         isActive: true,
       },

@@ -37,6 +37,10 @@ const userSettingsSchema = new Schema<IUserSettingsDocument>({
     type: Boolean,
     default: true
   },
+  feedingRemindersEnabled: {
+    type: Boolean,
+    default: true
+  },
   quietHoursEnabled: {
     type: Boolean,
     default: true

@@ -11,6 +11,7 @@ import subscriptionRoutes from './subscriptionRoutes';
 import accountRoutes from './accountRoutes';
 import recurrenceRoutes from './recurrenceRoutes';
 import pushRoutes from './pushRoutes';
+import budgetAlertRoutes from './budgetAlertRoutes';
 import { WebhookController } from '../controllers/webhookController';
 import { requireActiveSubscription } from '../middleware/subscription';
 
@@ -82,5 +83,6 @@ router.use('/pets/:petId/expenses', expenseRoutes);
 
 // Pro-only routes
 router.use('/budget', requireActiveSubscription, userBudgetRoutes);
+router.use('/budget/alerts', requireActiveSubscription, budgetAlertRoutes);
 
 export default router;
