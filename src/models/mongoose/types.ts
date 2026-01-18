@@ -281,3 +281,35 @@ export interface IRecurrenceRuleDocument extends Document {
   createdAt: Date;
   updatedAt: Date;
 }
+
+// User Device Document Interface (for push notifications)
+export interface IUserDeviceDocument extends Document {
+  _id: Types.ObjectId;
+  userId: Types.ObjectId;
+  expoPushToken: string;
+  deviceId: string;
+  deviceName?: string;
+  platform: 'ios' | 'android' | 'web';
+  appVersion?: string;
+  lastActiveAt: Date;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Scheduled Notification Document Interface
+export interface IScheduledNotificationDocument extends Document {
+  _id: Types.ObjectId;
+  userId: Types.ObjectId;
+  eventId: Types.ObjectId;
+  expoPushToken: string;
+  scheduledFor: Date;
+  sentAt?: Date;
+  status: 'pending' | 'sent' | 'failed' | 'cancelled';
+  errorMessage?: string;
+  retryCount: number;
+  maxRetries: number;
+  notificationId?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}

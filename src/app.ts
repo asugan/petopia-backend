@@ -8,6 +8,7 @@ import { rateLimiter } from './middleware/rateLimiter';
 import { errorHandler } from './middleware/errorHandler';
 import { utcDateSerializer } from './middleware/utcDateSerializer';
 import apiRoutes from './routes';
+import { initializeScheduler } from './jobs/scheduler.js';
 
 const app = express();
 
@@ -141,6 +142,11 @@ app.get('/', (_req: Request, res: Response) => {
 
 // Mount API routes after the info endpoint
 app.use('/api', apiRoutes);
+
+// Initialize job scheduler (runs in background, doesn't block server)
+if (process.env.NODE_ENV !== 'test') {
+  initializeScheduler();
+}
 
 // Error handling middleware (should be last)
 app.use(errorHandler);

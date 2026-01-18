@@ -12,6 +12,8 @@ export { DeviceTrialRegistryModel } from './deviceTrialRegistry';
 export { UserTrialRegistryModel } from './userTrialRegistry';
 export { ExchangeRateModel } from './exchangeRate';
 export { RecurrenceRuleModel } from './recurrenceRule';
+export { UserDeviceModel } from './userDevices';
+export { ScheduledNotificationModel } from './scheduledNotifications';
 
 // Export document interfaces
 export type {
@@ -28,5 +30,7 @@ export type {
   IUserTrialRegistryDocument,
   IExchangeRateDocument,
   IRecurrenceRuleDocument,
+  IUserDeviceDocument,
+  IScheduledNotificationDocument,
   RecurrenceFrequency,
 } from './types';

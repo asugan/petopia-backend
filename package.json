@@ -41,6 +41,7 @@
     "mongodb": "^7.0.0",
     "mongoose": "^9.0.1",
     "morgan": "^1.10.1",
+    "node-cron": "^4.2.1",
     "pdfkit": "^0.17.2",
     "zod": "^4.1.12"
   },
@@ -50,6 +51,7 @@
     "@types/express": "^5.0.5",
     "@types/morgan": "^1.9.10",
     "@types/node": "^24.9.1",
+    "@types/node-cron": "^3.0.11",
     "@types/supertest": "^6.0.3",
     "@typescript-eslint/eslint-plugin": "^8.49.0",
     "@typescript-eslint/parser": "^8.49.0",

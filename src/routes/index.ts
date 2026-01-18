@@ -10,6 +10,7 @@ import userSettingsRoutes from './userSettingsRoutes';
 import subscriptionRoutes from './subscriptionRoutes';
 import accountRoutes from './accountRoutes';
 import recurrenceRoutes from './recurrenceRoutes';
+import pushRoutes from './pushRoutes';
 import { WebhookController } from '../controllers/webhookController';
 import { requireActiveSubscription } from '../middleware/subscription';
 
@@ -71,6 +72,7 @@ router.use('/events', eventRoutes);
 router.use('/feeding-schedules', feedingScheduleRoutes);
 router.use('/expenses', expenseRoutes);
 router.use('/recurrence-rules', recurrenceRoutes);
+router.use('/push', pushRoutes);
 
 // Pet-specific nested routes (core access)
 router.use('/pets/:petId/health-records', healthRecordRoutes);
