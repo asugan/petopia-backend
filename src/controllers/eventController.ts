@@ -10,16 +10,12 @@ import {
 import { createError } from '../middleware/errorHandler';
 import { parseUTCDate } from '../lib/dateUtils';
 import { IEventDocument } from '../models/mongoose';
-import { EventModel } from '../models/mongoose/event';
-import { SubscriptionService } from '../services/subscriptionService';
 
 export class EventController {
   private eventService: EventService;
-  private subscriptionService: SubscriptionService;
 
   constructor() {
     this.eventService = new EventService();
-    this.subscriptionService = new SubscriptionService();
   }
 
   // GET /api/events OR /api/pets/:petId/events - Get events for authenticated user
@@ -146,16 +142,6 @@ export class EventController {
         );
       }
 
-      if (eventData.reminder) {
-        const subscriptionStatus = await this.subscriptionService.getSubscriptionStatus(userId);
-        if (!subscriptionStatus.hasActiveSubscription) {
-          const activeReminderCount = await EventModel.countDocuments({ userId, reminder: true });
-          if (activeReminderCount >= 2) {
-            throw createError('Reminder limit reached', 402, 'PRO_REQUIRED');
-          }
-        }
-      }
-
       // Convert string dates to UTC Date objects
       const convertedEventData = {
         ...eventData,
@@ -186,20 +172,6 @@ export class EventController {
 
       if (!id) {
         throw createError('Event ID is required', 400, 'MISSING_ID');
-      }
-
-      if (updates.reminder === true) {
-        const existingEvent = await this.eventService.getEventById(userId, id);
-        const isAlreadyReminder = existingEvent?.reminder === true;
-        if (!isAlreadyReminder) {
-          const subscriptionStatus = await this.subscriptionService.getSubscriptionStatus(userId);
-          if (!subscriptionStatus.hasActiveSubscription) {
-            const activeReminderCount = await EventModel.countDocuments({ userId, reminder: true });
-            if (activeReminderCount >= 2) {
-              throw createError('Reminder limit reached', 402, 'PRO_REQUIRED');
-            }
-          }
-        }
       }
 
       // Convert string dates to UTC Date objects
