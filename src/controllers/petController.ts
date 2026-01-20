@@ -257,4 +257,32 @@ export class PetController {
       next(error);
     }
   };
+
+  // POST /api/pets/downgrade - Delete all pets except the one to keep (freemium downgrade)
+  downgrade = async (
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const userId = requireAuth(req);
+      const { keepPetId } = req.body as { keepPetId: string };
+
+      if (!keepPetId) {
+        throw createError('keepPetId is required', 400, 'MISSING_KEEP_PET_ID');
+      }
+
+      const result = await this.petService.deleteAllPetsExcept(userId, keepPetId);
+
+      successResponse(res, {
+        success: true,
+        deletedCount: result.deletedPetCount,
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'Pet to keep not found or does not belong to user') {
+        return next(createError('Pet not found', 404, 'PET_NOT_FOUND'));
+      }
+      next(error);
+    }
+  };
 }

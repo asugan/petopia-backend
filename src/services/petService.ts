@@ -1,5 +1,15 @@
 import { QueryFilter, Types, UpdateQuery } from 'mongoose';
-import { IPetDocument, PetModel } from '../models/mongoose';
+import {
+  EventModel,
+  ExpenseModel,
+  FeedingNotificationModel,
+  FeedingScheduleModel,
+  HealthRecordModel,
+  IPetDocument,
+  PetModel,
+  RecurrenceRuleModel,
+  ScheduledNotificationModel,
+} from '../models/mongoose';
 import { Pet, PetQueryParams } from '../types/api';
 
 export class PetService {
@@ -111,5 +121,57 @@ export class PetService {
     ).exec();
 
     return updatedPet ?? null;
+  }
+
+  /**
+   * Delete all pets except the specified one (for freemium downgrade)
+   * Also deletes all related data: health records, events, expenses, feeding schedules, etc.
+   */
+  async deleteAllPetsExcept(
+    userId: string,
+    keepPetId: string
+  ): Promise<{ deletedPetCount: number }> {
+    const userObjectId = new Types.ObjectId(userId);
+    const keepPetObjectId = new Types.ObjectId(keepPetId);
+
+    // Verify the pet to keep belongs to the user
+    const keepPet = await PetModel.findOne({
+      _id: keepPetObjectId,
+      userId: userObjectId,
+    }).exec();
+
+    if (!keepPet) {
+      throw new Error('Pet to keep not found or does not belong to user');
+    }
+
+    // Get all pet IDs to delete (all except the one to keep)
+    const petsToDelete = await PetModel.find({
+      userId: userObjectId,
+      _id: { $ne: keepPetObjectId },
+    }).select('_id').exec();
+
+    const petIdsToDelete = petsToDelete.map((p) => p._id);
+
+    if (petIdsToDelete.length === 0) {
+      return { deletedPetCount: 0 };
+    }
+
+    // Delete all related data for these pets
+    await Promise.all([
+      HealthRecordModel.deleteMany({ petId: { $in: petIdsToDelete } }),
+      EventModel.deleteMany({ petId: { $in: petIdsToDelete } }),
+      ExpenseModel.deleteMany({ petId: { $in: petIdsToDelete } }),
+      FeedingScheduleModel.deleteMany({ petId: { $in: petIdsToDelete } }),
+      RecurrenceRuleModel.deleteMany({ petId: { $in: petIdsToDelete } }),
+      ScheduledNotificationModel.deleteMany({ petId: { $in: petIdsToDelete } }),
+      FeedingNotificationModel.deleteMany({ petId: { $in: petIdsToDelete } }),
+    ]);
+
+    // Delete the pets
+    const deleteResult = await PetModel.deleteMany({
+      _id: { $in: petIdsToDelete },
+    });
+
+    return { deletedPetCount: deleteResult.deletedCount };
   }
 }

@@ -18,6 +18,10 @@ export const SUBSCRIPTION_TIERS = {
   PRO: 'pro',
 } as const;
 
+export const FREEMIUM_LIMITS = {
+  MAX_PETS: 1,
+} as const;
+
 export type SubscriptionProvider =
   (typeof SUBSCRIPTION_PROVIDERS)[keyof typeof SUBSCRIPTION_PROVIDERS];
 export type SubscriptionStatus =

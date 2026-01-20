@@ -24,6 +24,10 @@ const updatePhotoSchema = z.object({
   photoUrl: z.string().url('Invalid photo URL'),
 });
 
+const downgradeSchema = z.object({
+  keepPetId: z.string().min(1, 'keepPetId is required'),
+});
+
 // Routes
 router.get('/', petController.getAllPets);
 
@@ -44,5 +48,8 @@ router.post(
 
 // Health records sub-routes
 router.get('/:id/health-records', validateObjectId(), petController.getPetHealthRecords);
+
+// Downgrade route (freemium - delete all pets except the selected one)
+router.post('/downgrade', validateRequest(downgradeSchema), petController.downgrade);
 
 export default router;

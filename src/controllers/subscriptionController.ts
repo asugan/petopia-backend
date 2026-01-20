@@ -1,14 +1,18 @@
 import { NextFunction, Response } from 'express';
 import { AuthenticatedRequest, requireAuth } from '../middleware/auth';
 import { SubscriptionService } from '../services/subscriptionService';
+import { PetService } from '../services/petService';
 import { successResponse } from '../utils/response';
 import { createError } from '../middleware/errorHandler';
+import { FREEMIUM_LIMITS } from '../config/subscriptionConfig';
 
 export class SubscriptionController {
   private subscriptionService: SubscriptionService;
+  private petService: PetService;
 
   constructor() {
     this.subscriptionService = new SubscriptionService();
+    this.petService = new PetService();
   }
 
   /**
@@ -161,6 +165,34 @@ export class SubscriptionController {
       successResponse(res, {
         success: true,
         message: 'Trial deactivated successfully',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * GET /api/subscription/downgrade-status
+   * Check if user needs to downgrade (select pets to keep) after subscription expiry
+   */
+  getDowngradeStatus = async (
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const userId = requireAuth(req);
+
+      const status = await this.subscriptionService.getSubscriptionStatus(userId);
+      const { pets, total } = await this.petService.getAllPets(userId, { page: 1, limit: 100 });
+
+      const requiresDowngrade = !status.hasActiveSubscription && total > FREEMIUM_LIMITS.MAX_PETS;
+
+      successResponse(res, {
+        requiresDowngrade,
+        currentPetCount: total,
+        freemiumLimit: FREEMIUM_LIMITS.MAX_PETS,
+        pets: requiresDowngrade ? pets : [],
       });
     } catch (error) {
       next(error);

@@ -16,6 +16,9 @@ const startTrialSchema = z.object({
 // GET /api/subscription/status - Get unified subscription status (main endpoint)
 router.get('/status', subscriptionController.getSubscriptionStatus);
 
+// GET /api/subscription/downgrade-status - Check if user needs to downgrade
+router.get('/downgrade-status', subscriptionController.getDowngradeStatus);
+
 // GET /api/subscription/trial-status - Deprecated: Use /status instead
 router.get('/trial-status', subscriptionController.getTrialStatus);
 
