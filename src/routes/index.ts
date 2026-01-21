@@ -54,6 +54,10 @@ router.get('/public-config', (_req: Request, res: Response) => {
         privacyUrl: process.env.PUBLIC_LEGAL_PRIVACY_URL ?? null,
         termsUrl: process.env.PUBLIC_LEGAL_TERMS_URL ?? null,
       },
+      posthog: {
+        apiKey: process.env.PUBLIC_POSTHOG_API_KEY ?? '',
+        host: process.env.PUBLIC_POSTHOG_HOST ?? 'https://us.i.posthog.com',
+      },
     },
   });
 });
