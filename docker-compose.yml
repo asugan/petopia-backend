@@ -1,37 +1,17 @@
 version: '3.8'
 
 services:
-  petopia-backend:
-    container_name: petopia_backend
+  petopia-api:
     build: .
-    ports:
-      - '3000:3000'
-    environment:
-      - NODE_ENV=${NODE_ENV:-production}
-      - PORT=${PORT:-3000}
-      - MONGODB_URI=${MONGODB_URI}
-      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
-      - BETTER_AUTH_URL=${BETTER_AUTH_URL}
-      - CORS_ORIGIN=${CORS_ORIGIN:-*}
-      - RATE_LIMIT_WINDOW_MS=${RATE_LIMIT_WINDOW_MS:-900000}
-      - RATE_LIMIT_MAX_REQUESTS=${RATE_LIMIT_MAX_REQUESTS:-100}
-      # Social Auth Providers (Optional)
-      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
-      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-      - APPLE_CLIENT_ID=${APPLE_CLIENT_ID}
-      - APPLE_CLIENT_SECRET=${APPLE_CLIENT_SECRET}
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    restart: unless-stopped
+    container_name: petopia-api
+    env_file:
+      - .env
     networks:
-      - coolify
-      - petopia-network
+      - infra
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:3000:3000'
 
 networks:
-  petopia-network:
-    driver: bridge
-  coolify:
+  infra:
     external: true
