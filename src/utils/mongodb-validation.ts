@@ -18,10 +18,11 @@ export const paramsWithUserId = z.object({
 
 // Validation middleware factory for ObjectId params
 import { NextFunction, Request, Response } from 'express';
+import { toString } from './express-utils';
 
 export function validateObjectId(param = 'id') {
   return (req: Request, res: Response, next: NextFunction) => {
-    const id = req.params[param];
+    const id = toString(req.params[param]);
 
     if (!id) {
       res.status(400).json({

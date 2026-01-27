@@ -14,6 +14,7 @@ import { createError } from '../middleware/errorHandler';
 import { parseUTCDate } from '../lib/dateUtils';
 import { IExpenseDocument } from '../models/mongoose';
 import { ReportService } from '../services/reportService';
+import { toString } from '../utils/express-utils';
 
 export class ExpenseController {
   private expenseService: ExpenseService;
@@ -33,20 +34,20 @@ export class ExpenseController {
     try {
       const userId = requireAuth(req);
       // Support both URL params (/pets/:petId/expenses) and query string (/expenses?petId=...)
-      const petId = req.params.petId ?? (req.query.petId as string);
+      const petId = toString(req.params.petId) || toString(req.query.petId as string | string[] | undefined);
       const params: ExpenseQueryParams = {
         ...getPaginationParams(req.query),
-        category: req.query.category as string,
-        startDate: req.query.startDate as string,
-        endDate: req.query.endDate as string,
+        category: toString(req.query.category as string | string[] | undefined),
+        startDate: toString(req.query.startDate as string | string[] | undefined),
+        endDate: toString(req.query.endDate as string | string[] | undefined),
         minAmount: req.query.minAmount
-          ? parseFloat(req.query.minAmount as string)
+          ? parseFloat(toString(req.query.minAmount as string | string[] | undefined))
           : undefined,
         maxAmount: req.query.maxAmount
-          ? parseFloat(req.query.maxAmount as string)
+          ? parseFloat(toString(req.query.maxAmount as string | string[] | undefined))
           : undefined,
-        currency: req.query.currency as string,
-        paymentMethod: req.query.paymentMethod as string,
+        currency: toString(req.query.currency as string | string[] | undefined),
+        paymentMethod: toString(req.query.paymentMethod as string | string[] | undefined),
       };
 
       const { expenses, total } = await this.expenseService.getExpensesByPetId(
@@ -77,7 +78,7 @@ export class ExpenseController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const { id } = req.params;
+      const id = toString(req.params.id);
 
       if (!id) {
         throw createError('Expense ID is required', 400, 'MISSING_ID');
@@ -144,7 +145,7 @@ export class ExpenseController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const { id } = req.params;
+      const id = toString(req.params.id);
       const updates = req.body as UpdateExpenseRequest;
 
       if (!id) {
@@ -181,7 +182,7 @@ export class ExpenseController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const { id } = req.params;
+      const id = toString(req.params.id);
 
       if (!id) {
         throw createError('Expense ID is required', 400, 'MISSING_ID');
@@ -207,14 +208,14 @@ export class ExpenseController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const petId = req.query.petId as string;
+      const petId = toString(req.query.petId as string | string[] | undefined);
       const startDate = req.query.startDate
-        ? new Date(req.query.startDate as string)
+        ? new Date(toString(req.query.startDate as string | string[] | undefined))
         : undefined;
       const endDate = req.query.endDate
-        ? new Date(req.query.endDate as string)
+        ? new Date(toString(req.query.endDate as string | string[] | undefined))
         : undefined;
-      const category = req.query.category as string;
+      const category = toString(req.query.category as string | string[] | undefined);
 
       const stats = await this.expenseService.getExpenseStats(
         userId,
@@ -237,12 +238,12 @@ export class ExpenseController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const petId = req.query.petId as string;
+      const petId = toString(req.query.petId as string | string[] | undefined);
       const startDate = req.query.startDate
-        ? new Date(req.query.startDate as string)
+        ? new Date(toString(req.query.startDate as string | string[] | undefined))
         : undefined;
       const endDate = req.query.endDate
-        ? new Date(req.query.endDate as string)
+        ? new Date(toString(req.query.endDate as string | string[] | undefined))
         : undefined;
 
       if (!startDate || !endDate) {
@@ -273,13 +274,13 @@ export class ExpenseController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const petId = req.query.petId as string;
+      const petId = toString(req.query.petId as string | string[] | undefined);
       const year = req.query.year
-        ? parseInt(req.query.year as string)
+        ? parseInt(toString(req.query.year as string | string[] | undefined))
         : undefined;
       const month =
         req.query.month !== undefined
-          ? parseInt(req.query.month as string)
+          ? parseInt(toString(req.query.month as string | string[] | undefined))
           : undefined;
 
       const expenses = await this.expenseService.getMonthlyExpenses(
@@ -302,9 +303,9 @@ export class ExpenseController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const petId = req.query.petId as string;
+      const petId = toString(req.query.petId as string | string[] | undefined);
       const year = req.query.year
-        ? parseInt(req.query.year as string)
+        ? parseInt(toString(req.query.year as string | string[] | undefined))
         : undefined;
 
       const expenses = await this.expenseService.getYearlyExpenses(
@@ -326,8 +327,8 @@ export class ExpenseController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const { category } = req.params;
-      const petId = req.query.petId as string;
+      const category = toString(req.params.category);
+      const petId = toString(req.query.petId as string | string[] | undefined);
 
       if (!category) {
         throw createError('Category is required', 400, 'MISSING_CATEGORY');
@@ -352,12 +353,12 @@ export class ExpenseController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const petId = req.query.petId as string;
+      const petId = toString(req.query.petId as string | string[] | undefined);
       const startDate = req.query.startDate
-        ? new Date(req.query.startDate as string)
+        ? new Date(toString(req.query.startDate as string | string[] | undefined))
         : undefined;
       const endDate = req.query.endDate
-        ? new Date(req.query.endDate as string)
+        ? new Date(toString(req.query.endDate as string | string[] | undefined))
         : undefined;
 
       const csvContent = await this.expenseService.exportExpensesCSV(
@@ -386,12 +387,12 @@ export class ExpenseController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const petId = req.query.petId as string;
+      const petId = toString(req.query.petId as string | string[] | undefined);
       const startDate = req.query.startDate
-        ? new Date(req.query.startDate as string)
+        ? new Date(toString(req.query.startDate as string | string[] | undefined))
         : undefined;
       const endDate = req.query.endDate
-        ? new Date(req.query.endDate as string)
+        ? new Date(toString(req.query.endDate as string | string[] | undefined))
         : undefined;
 
       const pdfBuffer = await this.expenseService.exportExpensesPDF(
@@ -420,7 +421,7 @@ export class ExpenseController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const petId = req.query.petId as string;
+      const petId = toString(req.query.petId as string | string[] | undefined);
 
       if (!petId) {
         throw createError('Pet ID is required for vet summary', 400, 'MISSING_PET_ID');

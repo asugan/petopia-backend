@@ -13,6 +13,7 @@ import {
 import { createError } from '../middleware/errorHandler';
 import { FeedingScheduleModel } from '../models/mongoose/feedingSchedule';
 import { SubscriptionService } from '../services/subscriptionService';
+import { toString } from '../utils/express-utils';
 
 export class FeedingScheduleController {
   private feedingScheduleService: FeedingScheduleService;
@@ -32,7 +33,7 @@ export class FeedingScheduleController {
     try {
       const userId = requireAuth(req);
       // Support both URL params (/pets/:petId/feeding-schedules) and query string (/feeding-schedules?petId=...)
-      const petId = req.params.petId ?? (req.query.petId as string);
+      const petId = toString(req.params.petId) || toString(req.query.petId as string | string[] | undefined);
       const params: FeedingScheduleQueryParams = {
         ...getPaginationParams(req.query),
         isActive:
@@ -41,7 +42,7 @@ export class FeedingScheduleController {
             : req.query.isActive === 'false'
               ? false
               : undefined,
-        foodType: req.query.foodType as string,
+        foodType: toString(req.query.foodType as string | string[] | undefined),
       };
 
       const { schedules, total } =
@@ -73,7 +74,7 @@ export class FeedingScheduleController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const { id } = req.params;
+      const id = toString(req.params.id);
 
       if (!id) {
         throw createError('Feeding schedule ID is required', 400, 'MISSING_ID');
@@ -152,7 +153,7 @@ export class FeedingScheduleController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const { id } = req.params;
+      const id = toString(req.params.id);
       const updates = req.body as UpdateFeedingScheduleRequest;
 
       if (!id) {
@@ -204,7 +205,7 @@ export class FeedingScheduleController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const { id } = req.params;
+      const id = toString(req.params.id);
 
       if (!id) {
         throw createError('Feeding schedule ID is required', 400, 'MISSING_ID');
@@ -239,7 +240,7 @@ export class FeedingScheduleController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const petId = req.query.petId as string;
+      const petId = toString(req.query.petId as string | string[] | undefined);
       const schedules = await this.feedingScheduleService.getActiveSchedules(
         userId,
         petId
@@ -258,7 +259,7 @@ export class FeedingScheduleController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const petId = req.query.petId as string;
+      const petId = toString(req.query.petId as string | string[] | undefined);
       const schedules = await this.feedingScheduleService.getTodaySchedules(
         userId,
         petId
@@ -277,7 +278,7 @@ export class FeedingScheduleController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const petId = req.query.petId as string;
+      const petId = toString(req.query.petId as string | string[] | undefined);
       const schedule = await this.feedingScheduleService.getNextFeedingTime(
         userId,
         petId

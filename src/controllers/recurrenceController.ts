@@ -8,6 +8,7 @@ import {
   UpdateRecurrenceRuleRequest,
 } from '../types/api';
 import { createError } from '../middleware/errorHandler';
+import { toString } from '../utils/express-utils';
 
 export class RecurrenceController {
   private recurrenceService: RecurrenceService;
@@ -27,7 +28,7 @@ export class RecurrenceController {
       const params: RecurrenceRuleQueryParams = {
         ...getPaginationParams(req.query),
         isActive: req.query.isActive === 'true' ? true : req.query.isActive === 'false' ? false : undefined,
-        petId: req.query.petId as string,
+        petId: toString(req.query.petId as string | string[] | undefined),
       };
 
       const { rules, total } = await this.recurrenceService.getRules(userId, params);
@@ -54,7 +55,7 @@ export class RecurrenceController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const { id } = req.params;
+      const id = toString(req.params.id);
 
       if (!id) {
         throw createError('Recurrence rule ID is required', 400, 'MISSING_ID');
@@ -107,7 +108,7 @@ export class RecurrenceController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const { id } = req.params;
+      const id = toString(req.params.id);
       const data = req.body as UpdateRecurrenceRuleRequest;
 
       if (!id) {
@@ -134,7 +135,7 @@ export class RecurrenceController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const { id } = req.params;
+      const id = toString(req.params.id);
 
       if (!id) {
         throw createError('Recurrence rule ID is required', 400, 'MISSING_ID');
@@ -160,7 +161,7 @@ export class RecurrenceController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const { id } = req.params;
+      const id = toString(req.params.id);
 
       if (!id) {
         throw createError('Recurrence rule ID is required', 400, 'MISSING_ID');
@@ -182,14 +183,14 @@ export class RecurrenceController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const { id } = req.params;
+      const id = toString(req.params.id);
 
       if (!id) {
         throw createError('Recurrence rule ID is required', 400, 'MISSING_ID');
       }
 
       const includePast = req.query.includePast === 'true';
-      const limit = parseInt(req.query.limit as string, 10) || 50;
+      const limit = parseInt(toString(req.query.limit as string | string[] | undefined), 10) || 50;
 
       const events = await this.recurrenceService.getEventsByRuleId(userId, id, {
         includesPast: includePast,
@@ -210,7 +211,7 @@ export class RecurrenceController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const { id } = req.params;
+      const id = toString(req.params.id);
       const { date } = req.body as { date: string };
 
       if (!id || !date) {

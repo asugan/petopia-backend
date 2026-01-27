@@ -9,6 +9,7 @@ import {
 } from '../types/api';
 import { createError } from '../middleware/errorHandler';
 import { parseUTCDate } from '../lib/dateUtils';
+import { toString } from '../utils/express-utils';
 
 export class HealthRecordController {
   private healthRecordService: HealthRecordService;
@@ -25,12 +26,12 @@ export class HealthRecordController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const petId = req.query.petId as string | undefined;
+      const petId = toString(req.query.petId as string | string[] | undefined);
       const params: HealthRecordQueryParams = {
         ...getPaginationParams(req.query),
-        type: req.query.type as string,
-        startDate: req.query.startDate as string,
-        endDate: req.query.endDate as string,
+        type: toString(req.query.type as string | string[] | undefined),
+        startDate: toString(req.query.startDate as string | string[] | undefined),
+        endDate: toString(req.query.endDate as string | string[] | undefined),
       };
 
       const { records, total } =
@@ -61,12 +62,12 @@ export class HealthRecordController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const petId = req.params.petId ?? (req.query.petId as string);
+      const petId = toString(req.params.petId) || toString(req.query.petId as string | string[] | undefined);
       const params: HealthRecordQueryParams = {
         ...getPaginationParams(req.query),
-        type: req.query.type as string,
-        startDate: req.query.startDate as string,
-        endDate: req.query.endDate as string,
+        type: toString(req.query.type as string | string[] | undefined),
+        startDate: toString(req.query.startDate as string | string[] | undefined),
+        endDate: toString(req.query.endDate as string | string[] | undefined),
       };
 
       const { records, total } =
@@ -98,7 +99,7 @@ export class HealthRecordController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const { id } = req.params;
+      const id = toString(req.params.id);
 
       if (!id) {
         throw createError('Health record ID is required', 400, 'MISSING_ID');
@@ -181,7 +182,7 @@ export class HealthRecordController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const { id } = req.params;
+      const id = toString(req.params.id);
       const updates = req.body as UpdateHealthRecordRequest;
 
       if (!id) {
@@ -233,7 +234,7 @@ export class HealthRecordController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const { id } = req.params;
+      const id = toString(req.params.id);
 
       if (!id) {
         throw createError('Health record ID is required', 400, 'MISSING_ID');

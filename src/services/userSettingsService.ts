@@ -1,5 +1,4 @@
-import { AnyBulkWriteOperation } from 'mongodb';
-import { HydratedDocument } from 'mongoose';
+import { AnyBulkWriteOperation, HydratedDocument } from 'mongoose';
 import {
   ExpenseModel,
   HealthRecordModel,

@@ -10,6 +10,7 @@ import {
 import { createError } from '../middleware/errorHandler';
 import { parseUTCDate } from '../lib/dateUtils';
 import { IEventDocument } from '../models/mongoose';
+import { toString } from '../utils/express-utils';
 
 export class EventController {
   private eventService: EventService;
@@ -26,12 +27,12 @@ export class EventController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const petId = req.params.petId ?? (req.query.petId as string);
+      const petId = toString(req.params.petId) || toString(req.query.petId as string | string[] | undefined);
       const params: EventQueryParams = {
         ...getPaginationParams(req.query),
-        type: req.query.type as string,
-        startDate: req.query.startDate as string,
-        endDate: req.query.endDate as string,
+        type: toString(req.query.type as string | string[] | undefined),
+        startDate: toString(req.query.startDate as string | string[] | undefined),
+        endDate: toString(req.query.endDate as string | string[] | undefined),
       };
 
       const { events, total } = await this.eventService.getEventsByPetId(
@@ -62,10 +63,10 @@ export class EventController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const { date } = req.params;
+      const date = toString(req.params.date);
       const params: EventQueryParams = {
         ...getPaginationParams(req.query),
-        type: req.query.type as string,
+        type: toString(req.query.type as string | string[] | undefined),
       };
 
       if (!date) {
@@ -100,7 +101,7 @@ export class EventController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const { id } = req.params;
+      const id = toString(req.params.id);
 
       if (!id) {
         throw createError('Event ID is required', 400, 'MISSING_ID');
@@ -167,7 +168,7 @@ export class EventController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const { id } = req.params;
+      const id = toString(req.params.id);
       const updates = req.body as UpdateEventRequest;
 
       if (!id) {
@@ -207,7 +208,7 @@ export class EventController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const { id } = req.params;
+      const id = toString(req.params.id);
 
       if (!id) {
         throw createError('Event ID is required', 400, 'MISSING_ID');
@@ -240,7 +241,7 @@ export class EventController {
       let days = 7; // default
 
       if (daysParam !== undefined) {
-        const parsedDays = parseInt(daysParam as string);
+        const parsedDays = parseInt(toString(daysParam as string | string[] | undefined));
 
         // Validate it's a number
         if (isNaN(parsedDays)) {
@@ -282,7 +283,7 @@ export class EventController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const petId = req.query.petId as string;
+      const petId = toString(req.query.petId as string | string[] | undefined);
       const events = await this.eventService.getTodayEvents(userId, petId);
       successResponse(res, events);
     } catch (error) {

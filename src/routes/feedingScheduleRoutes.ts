@@ -7,6 +7,7 @@ import { feedingReminderService } from '../services/feedingReminderService.js';
 import { logger } from '../utils/logger.js';
 import { AuthenticatedRequest } from '../middleware/auth.js';
 import { FeedingScheduleModel } from '../models/mongoose/index.js';
+import { toString } from '../utils/express-utils';
 
 const router = Router({ mergeParams: true });
 const feedingScheduleController = new FeedingScheduleController();
@@ -51,9 +52,8 @@ router.put(
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = req.user?.id;
-      const { id } = req.params;
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      const { enabled, minutesBefore } = req.body;
+      const id = toString(req.params.id);
+      const { enabled, minutesBefore } = req.body as { enabled: boolean; minutesBefore?: number };
 
       if (!userId) {
         res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'User not authenticated' } });
@@ -74,9 +74,9 @@ router.put(
       }
 
       // Update reminder settings
-      schedule.remindersEnabled = enabled as boolean;
+      schedule.remindersEnabled = enabled;
       if (minutesBefore !== undefined) {
-        schedule.reminderMinutesBefore = minutesBefore as number;
+        schedule.reminderMinutesBefore = minutesBefore;
       }
 
       // If enabling reminders, calculate next notification time
@@ -109,7 +109,7 @@ router.put(
           reminderMinutesBefore: schedule.reminderMinutesBefore ?? 15,
         });
       } else {
-        await feedingReminderService.cancelFeedingReminders(id);
+        await feedingReminderService.cancelFeedingReminders(toString(id));
       }
 
       res.json({
@@ -134,7 +134,7 @@ router.post(
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = req.user?.id;
-      const { id } = req.params;
+      const id = toString(req.params.id);
 
       if (!userId) {
         res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'User not authenticated' } });
@@ -171,7 +171,7 @@ router.get(
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = req.user?.id;
-      const { id } = req.params;
+      const id = toString(req.params.id);
 
       if (!userId) {
         res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'User not authenticated' } });
@@ -191,7 +191,7 @@ router.get(
         return;
       }
 
-      const notificationStatus = await feedingReminderService.getScheduleNotifications(id);
+      const notificationStatus = await feedingReminderService.getScheduleNotifications(toString(id));
 
       res.json({
         success: true,
@@ -229,7 +229,7 @@ router.post(
         return;
       }
 
-      const result = await feedingReminderService.markFeedingCompleted(id, userId);
+      const result = await feedingReminderService.markFeedingCompleted(toString(id), userId);
 
       if (!result.success) {
         res.status(500).json({ success: false, error: { code: 'COMPLETION_FAILED', message: result.error } });

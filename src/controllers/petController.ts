@@ -12,6 +12,7 @@ import { createError } from '../middleware/errorHandler';
 import { parseUTCDate } from '../lib/dateUtils';
 import { IPetDocument } from '../models/mongoose';
 import { SubscriptionService } from '../services/subscriptionService';
+import { toString } from '../utils/express-utils';
 
 export class PetController {
   private petService: PetService;
@@ -33,11 +34,11 @@ export class PetController {
     try {
       const userId = requireAuth(req);
       const params: PetQueryParams = {
-        page: parseInt(req.query.page as string) ?? 1,
-        limit: Math.min(parseInt(req.query.limit as string) ?? 10, 100),
-        type: req.query.type as string,
-        breed: req.query.breed as string,
-        gender: req.query.gender as string,
+        page: parseInt(toString(req.query.page as string | string[] | undefined)) ?? 1,
+        limit: Math.min(parseInt(toString(req.query.limit as string | string[] | undefined)) ?? 10, 100),
+        type: toString(req.query.type as string | string[] | undefined),
+        breed: toString(req.query.breed as string | string[] | undefined),
+        gender: toString(req.query.gender as string | string[] | undefined),
       };
 
       const { pets, total } = await this.petService.getAllPets(userId, params);
@@ -59,7 +60,7 @@ export class PetController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const { id } = req.params;
+      const id = toString(req.params.id);
 
       if (!id) {
         throw createError('Pet ID is required', 400, 'MISSING_ID');
@@ -128,7 +129,7 @@ export class PetController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const { id } = req.params;
+      const id = toString(req.params.id);
       const updates = req.body as UpdatePetRequest;
 
       if (!id) {
@@ -167,7 +168,7 @@ export class PetController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const { id } = req.params;
+      const id = toString(req.params.id);
 
       if (!id) {
         throw createError('Pet ID is required', 400, 'MISSING_ID');
@@ -193,7 +194,7 @@ export class PetController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const { id } = req.params;
+      const id = toString(req.params.id);
       const { photoUrl } = req.body as { photoUrl: string };
 
       if (!id) {
@@ -224,7 +225,7 @@ export class PetController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const { id } = req.params;
+      const id = toString(req.params.id);
 
       if (!id) {
         throw createError('Pet ID is required', 400, 'MISSING_ID');
@@ -238,11 +239,11 @@ export class PetController {
 
       // Optional query parameters for filtering
       const params = {
-        page: parseInt(req.query.page as string) ?? 1,
-        limit: parseInt(req.query.limit as string) ?? 50,
-        type: req.query.type as string,
-        startDate: req.query.startDate as string,
-        endDate: req.query.endDate as string,
+        page: parseInt(toString(req.query.page as string | string[] | undefined)) ?? 1,
+        limit: parseInt(toString(req.query.limit as string | string[] | undefined)) ?? 50,
+        type: toString(req.query.type as string | string[] | undefined),
+        startDate: toString(req.query.startDate as string | string[] | undefined),
+        endDate: toString(req.query.endDate as string | string[] | undefined),
       };
 
       const healthRecords =
