@@ -40,7 +40,8 @@ app.use(rateLimiter);
 
 // Better Auth handler - MUST come before express.json()
 // Express v5 requires named wildcard: *splat instead of just *
-app.all('/api/auth/*splat', toNodeHandler(auth));
+const authBasePath = process.env.BETTER_AUTH_BASEPATH || '/auth';
+app.all(`${authBasePath}/*splat`, toNodeHandler(auth));
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
@@ -77,7 +78,7 @@ const apiInfoResponse = {
         subscriptionWebhook: '/api/subscription/webhook',
       },
       auth: {
-        auth: '/api/auth/*',
+        auth: `${authBasePath}/*`,
       },
       account: {
         account: '/api/account',

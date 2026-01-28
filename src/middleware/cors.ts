@@ -5,6 +5,11 @@ const allowedOrigins = [
   'http://localhost:3001', // Next.js web app
   'http://localhost:8081', // Expo mobile app
   'https://appleid.apple.com', // Sign in with Apple callbacks
+  'https://dev.dekadans.net', // Dev web
+  'https://petopiaapi.dekadans.net', // API domain
+  'https://petopia.app', // Prod web
+  'petopia://', // iOS mobile
+  'petopia-petcare://', // Android mobile
   process.env.CORS_ORIGIN, // Custom origin from env
 ].filter(Boolean); // Remove undefined values
 

@@ -21,6 +21,8 @@ if (!authBaseUrl) {
   throw new Error('BETTER_AUTH_URL is required');
 }
 
+const authBasePath = process.env.BETTER_AUTH_BASEPATH || "/auth";
+
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 const appleClientId = process.env.APPLE_CLIENT_ID;
@@ -34,6 +36,7 @@ export const auth: ReturnType<typeof betterAuth> = betterAuth({
   }),
   secret: authSecret,
   baseURL: authBaseUrl,
+  basePath: authBasePath,
   socialProviders: {
     ...(googleClientId && googleClientSecret
       ? {
@@ -61,6 +64,9 @@ export const auth: ReturnType<typeof betterAuth> = betterAuth({
     'petopia-petcare://',
     'petopia-petcare:///', // iOS style
     'https://appleid.apple.com',
+    'https://dev.dekadans.net',
+    'https://petopiaapi.dekadans.net',
+    'https://petopia.app',
     // Expo development URLs with wildcards
     ...(process.env.NODE_ENV === 'development'
       ? ['exp://', 'exp://**', 'exp://192.168.*.*:*/**']
