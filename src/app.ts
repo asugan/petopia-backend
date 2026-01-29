@@ -40,7 +40,7 @@ app.use(rateLimiter);
 
 // Better Auth handler - MUST come before express.json()
 // Express v5 requires named wildcard: *splat instead of just *
-const authBasePath = process.env.BETTER_AUTH_BASEPATH || '/auth';
+const authBasePath = process.env.BETTER_AUTH_BASEPATH ?? '/auth';
 app.all(`${authBasePath}/*splat`, toNodeHandler(auth));
 
 // Body parsing middleware

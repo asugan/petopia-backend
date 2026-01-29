@@ -1,4 +1,5 @@
 import { Document, Types } from 'mongoose';
+import { SupportedCurrency } from '../../lib/constants';
 
 export type HealthRecordType =
   | 'checkup'
@@ -221,7 +222,7 @@ export interface IExchangeRateDocument extends Document {
 export interface IUserSettingsDocument extends Document {
   _id: Types.ObjectId;
   userId: Types.ObjectId;
-  baseCurrency: 'TRY' | 'USD' | 'EUR' | 'GBP';
+  baseCurrency: SupportedCurrency;
   timezone: string;
   language: string;
   theme: 'light' | 'dark';

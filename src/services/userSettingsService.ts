@@ -9,9 +9,10 @@ import {
 } from '../models/mongoose';
 import { ExchangeRateService } from './exchangeRateService';
 import { logger } from '../utils/logger';
+import { SUPPORTED_CURRENCIES, SupportedCurrency } from '../lib/constants';
 
 interface UpdateUserSettingsInput {
-  baseCurrency?: 'TRY' | 'USD' | 'EUR' | 'GBP';
+  baseCurrency?: SupportedCurrency;
   timezone?: string;
   language?: string;
   theme?: 'light' | 'dark';
@@ -51,8 +52,8 @@ export class UserSettingsService {
       throw new Error('No updates provided');
     }
 
-    if (updates.baseCurrency && !['TRY', 'USD', 'EUR', 'GBP'].includes(updates.baseCurrency)) {
-      throw new Error('Invalid baseCurrency. Must be one of: TRY, USD, EUR, GBP');
+    if (updates.baseCurrency && !SUPPORTED_CURRENCIES.includes(updates.baseCurrency)) {
+      throw new Error(`Invalid baseCurrency. Must be one of: ${SUPPORTED_CURRENCIES.join(', ')}`);
     }
 
     if (updates.theme && !['light', 'dark'].includes(updates.theme)) {
@@ -96,10 +97,10 @@ export class UserSettingsService {
 
   async updateBaseCurrency(
     userId: string,
-    baseCurrency: 'TRY' | 'USD' | 'EUR' | 'GBP'
+    baseCurrency: SupportedCurrency
   ): Promise<HydratedDocument<IUserSettingsDocument>> {
-    if (!['TRY', 'USD', 'EUR', 'GBP'].includes(baseCurrency)) {
-      throw new Error('Invalid baseCurrency. Must be one of: TRY, USD, EUR, GBP');
+    if (!SUPPORTED_CURRENCIES.includes(baseCurrency)) {
+      throw new Error(`Invalid baseCurrency. Must be one of: ${SUPPORTED_CURRENCIES.join(', ')}`);
     }
 
     const existing = await UserSettingsModel.findOne({ userId }).exec();
@@ -143,10 +144,10 @@ export class UserSettingsService {
     return updated;
   }
 
-  async getUserBaseCurrency(userId: string): Promise<'TRY' | 'USD' | 'EUR' | 'GBP'> {
+  async getUserBaseCurrency(userId: string): Promise<SupportedCurrency> {
     const settings = await UserSettingsModel.findOne({ userId }).exec();
     if (!settings) {
-      return 'TRY';
+      return 'USD';
     }
     return settings.baseCurrency;
   }
@@ -176,8 +177,8 @@ export class UserSettingsService {
 
   private async syncUserBudgetCurrency(
     userId: string,
-    previousBaseCurrency: 'TRY' | 'USD' | 'EUR' | 'GBP',
-    nextBaseCurrency: 'TRY' | 'USD' | 'EUR' | 'GBP'
+    previousBaseCurrency: SupportedCurrency,
+    nextBaseCurrency: SupportedCurrency
   ): Promise<void> {
     const budget = await UserBudgetModel.findOne({ userId }).exec();
     if (!budget) {
@@ -208,7 +209,7 @@ export class UserSettingsService {
 
   private async recalculateExpenseBaseCurrency(
     userId: string,
-    baseCurrency: 'TRY' | 'USD' | 'EUR' | 'GBP'
+    baseCurrency: SupportedCurrency
   ): Promise<number> {
     const expenses = await ExpenseModel.find({ userId })
       .select({ _id: 1, amount: 1, currency: 1 })
@@ -266,7 +267,7 @@ export class UserSettingsService {
 
   private async recalculateHealthRecordBaseCurrency(
     userId: string,
-    baseCurrency: 'TRY' | 'USD' | 'EUR' | 'GBP'
+    baseCurrency: SupportedCurrency
   ): Promise<number> {
     const healthRecords = await HealthRecordModel.find({ userId })
       .select({ _id: 1, cost: 1, currency: 1 })

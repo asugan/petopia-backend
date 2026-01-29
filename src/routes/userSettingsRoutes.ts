@@ -8,7 +8,7 @@ const router = Router({ mergeParams: true });
 const userSettingsController = new UserSettingsController();
 
 const updateUserSettingsSchema = z.object({
-  baseCurrency: z.enum(['TRY', 'USD', 'EUR', 'GBP']).optional(),
+  baseCurrency: z.enum(['TRY', 'USD', 'EUR', 'GBP', 'AUD', 'BRL', 'CAD', 'CHF', 'CNY', 'CZK', 'DKK', 'HKD', 'HUF', 'IDR', 'ILS', 'INR', 'ISK', 'JPY', 'KRW', 'MXN', 'MYR', 'NOK', 'NZD', 'PHP', 'PLN', 'RON', 'SEK', 'SGD', 'THB', 'ZAR']).optional(),
   timezone: z.string().min(1).optional(),
   language: z.string().min(1).optional(),
   theme: z.enum(['light', 'dark']).optional(),
@@ -24,7 +24,7 @@ const updateUserSettingsSchema = z.object({
 });
 
 const updateBaseCurrencySchema = z.object({
-  baseCurrency: z.enum(['TRY', 'USD', 'EUR', 'GBP']),
+  baseCurrency: z.enum(['TRY', 'USD', 'EUR', 'GBP', 'AUD', 'BRL', 'CAD', 'CHF', 'CNY', 'CZK', 'DKK', 'HKD', 'HUF', 'IDR', 'ILS', 'INR', 'ISK', 'JPY', 'KRW', 'MXN', 'MYR', 'NOK', 'NZD', 'PHP', 'PLN', 'RON', 'SEK', 'SGD', 'THB', 'ZAR']),
 });
 
 router.use(authMiddleware);

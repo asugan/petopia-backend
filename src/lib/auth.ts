@@ -21,7 +21,7 @@ if (!authBaseUrl) {
   throw new Error('BETTER_AUTH_URL is required');
 }
 
-const authBasePath = process.env.BETTER_AUTH_BASEPATH || "/auth";
+const authBasePath = process.env.BETTER_AUTH_BASEPATH ?? "/auth";
 
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;

@@ -1,9 +1,9 @@
 import { HydratedDocument } from 'mongoose';
 import { ExchangeRateModel, IExchangeRateDocument } from '../models/mongoose';
 import { logger } from '../utils/logger.js';
+import { SUPPORTED_CURRENCIES, SupportedCurrency } from '../lib/constants.js';
 
 const FRANKFURTER_API_BASE = 'https://api.frankfurter.app';
-const SUPPORTED_CURRENCIES = ['TRY', 'USD', 'EUR', 'GBP'];
 const CACHE_TTL_HOURS = 24;
 
 interface FrankfurterRatesResponse {
@@ -97,9 +97,9 @@ export class ExchangeRateService {
 
       const filteredRates: Record<string, number> = {};
       Object.entries(data.rates)
-        .filter(([currency]) => SUPPORTED_CURRENCIES.includes(currency))
+        .filter(([currency]) => SUPPORTED_CURRENCIES.includes(currency as SupportedCurrency))
         .forEach(([currency, rate]) => {
-          filteredRates[currency] = rate;
+          filteredRates[currency as SupportedCurrency] = rate;
         });
 
       await this.saveToCache(baseCurrency, filteredRates, data.date);

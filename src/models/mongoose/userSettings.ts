@@ -1,5 +1,6 @@
 import { Schema, model } from 'mongoose';
 import { IUserSettingsDocument } from './types';
+import { SUPPORTED_CURRENCIES } from '../../lib/constants';
 
 const defaultQuietHours = {
   startHour: 22,
@@ -14,7 +15,7 @@ const userSettingsSchema = new Schema<IUserSettingsDocument>({
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, unique: true, index: true },
   baseCurrency: {
     type: String,
-    enum: ['TRY', 'USD', 'EUR', 'GBP'],
+    enum: SUPPORTED_CURRENCIES,
     default: 'USD',
     required: true
   },

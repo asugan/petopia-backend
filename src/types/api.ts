@@ -1,4 +1,5 @@
 import type { EventStatus, EventType, HealthRecordType, ReminderPresetKey } from '../models/mongoose/types';
+import { SupportedCurrency } from '../lib/constants';
 
 // API Response Types
 export interface ApiResponse<T = unknown> {
@@ -302,7 +303,7 @@ export interface BudgetAlert {
 export interface UserSettings {
   id: string;
   userId: string;
-  baseCurrency: 'TRY' | 'USD' | 'EUR' | 'GBP';
+  baseCurrency: SupportedCurrency;
   timezone: string;
   language: string;
   theme: 'light' | 'dark';
@@ -320,7 +321,7 @@ export interface UserSettings {
 }
 
 export interface UpdateUserSettingsRequest {
-  baseCurrency?: 'TRY' | 'USD' | 'EUR' | 'GBP';
+  baseCurrency?: SupportedCurrency;
   timezone?: string;
   language?: string;
   theme?: 'light' | 'dark';
@@ -336,7 +337,7 @@ export interface UpdateUserSettingsRequest {
 }
 
 export interface UpdateBaseCurrencyRequest {
-  baseCurrency: 'TRY' | 'USD' | 'EUR' | 'GBP';
+  baseCurrency: SupportedCurrency;
 }
 
 // Recurrence Rule Types
