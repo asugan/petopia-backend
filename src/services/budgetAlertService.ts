@@ -2,9 +2,12 @@ import { Types } from 'mongoose';
 import { pushNotificationService } from './pushNotificationService.js';
 import { UserBudgetModel } from '../models/mongoose/userBudget.js';
 import { UserDeviceModel } from '../models/mongoose/userDevices.js';
-import { ExpenseModel } from '../models/mongoose/index.js';
-import { budgetAlertMessages } from '../config/notificationMessages.js';
+import { ExpenseModel, UserSettingsModel } from '../models/mongoose/index.js';
+import { getBudgetAlertMessages } from '../config/notificationMessages.js';
 import { logger } from '../utils/logger.js';
+
+// Cache for user languages to avoid repeated DB queries
+const userLanguageCache = new Map<string, string>();
 
 export interface BudgetAlertResult {
   userId: string;
@@ -25,7 +28,7 @@ export interface BudgetAlertNotification {
 
 /**
  * Budget Alert Service
- * Handles sending budget alert push notifications
+ * Handles sending budget alert push notifications with i18n support
  */
 export class BudgetAlertService {
   /**
@@ -57,19 +60,32 @@ export class BudgetAlertService {
       const currency = budget?.currency ?? 'USD';
       const remaining = budgetAmount - currentSpending;
 
-      // Use configurable message templates
+      // Get user's language preference
+      let userLanguage = userLanguageCache.get(userId);
+      if (userLanguage === undefined) {
+        const userSettings = await UserSettingsModel.findOne({
+          userId: new Types.ObjectId(userId),
+        }).select('language').lean().exec();
+        userLanguage = userSettings?.language ?? 'en';
+        userLanguageCache.set(userId, userLanguage);
+      }
+
+      // Get localized messages
+      const messages = getBudgetAlertMessages(userLanguage);
+
+      // Use i18n-enabled message templates
       const title = severity === 'critical' 
-        ? budgetAlertMessages.critical.title 
-        : budgetAlertMessages.warning.title;
+        ? messages.critical.title 
+        : messages.warning.title;
 
       const body = severity === 'critical'
-        ? budgetAlertMessages.critical.body({
+        ? messages.critical.body({
             currency,
             exceeded: Math.abs(remaining),
             current: currentSpending,
             budget: budgetAmount,
           })
-        : budgetAlertMessages.warning.body({
+        : messages.warning.body({
             percentage,
             currency,
             remaining,
@@ -137,6 +153,9 @@ export class BudgetAlertService {
     let processed = 0;
     let sent = 0;
     let failed = 0;
+
+    // Clear language cache at the start of batch processing
+    userLanguageCache.clear();
 
     for (const budget of budgets) {
       try {

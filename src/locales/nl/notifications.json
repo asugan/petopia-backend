@@ -1,0 +1,23 @@
+{
+  "eventReminder": {
+    "daysLater": "over {{count}} dagen",
+    "hoursLater": "over {{count}} uur",
+    "minutesLater": "over {{count}} minuten",
+    "title": "{{emoji}} {{petName}}: {{eventTitle}}",
+    "titleNoPet": "{{emoji}} {{eventTitle}}"
+  },
+  "budgetAlert": {
+    "warning": {
+      "title": "Budgetwaarschuwing",
+      "body": "U heeft {{percentage}}% van uw maandbudget gebruikt. Resterend: {{currency}} {{remaining}}"
+    },
+    "critical": {
+      "title": "Budget overschreden",
+      "body": "U heeft uw maandbudget met {{currency}} {{exceeded}} overschreden. Huidige uitgaven: {{currency}} {{current}} / {{currency}} {{budget}}"
+    }
+  },
+  "feedingReminder": {
+    "title": "🍽️ Voedertijd voor {{petName}}",
+    "body": "Tijd om {{petName}} te voeren: {{amount}} {{foodType}}"
+  }
+}

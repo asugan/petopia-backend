@@ -4,12 +4,16 @@ import { ScheduledNotificationModel } from '../models/mongoose/scheduledNotifica
 import { EventModel, UserSettingsModel } from '../models/mongoose/index.js';
 import { logger } from '../utils/logger.js';
 import { formatInTimeZone } from 'date-fns-tz';
+import { getEventReminderMessages } from '../config/notificationMessages.js';
 
 // Pagination settings for batch processing
 const BATCH_SIZE = 100; // Process 100 events at a time
 
 // Default timezone if user settings not available
 const DEFAULT_TIMEZONE = 'UTC';
+
+// Cache for user languages to avoid repeated DB queries
+const userLanguageCache = new Map<string, string>();
 
 export interface EventReminderConfig {
   eventId: string;
@@ -48,6 +52,19 @@ export class EventReminderService {
       return { success: true, scheduledCount: 0 };
     }
 
+    // Get user's language preference
+    let userLanguage = userLanguageCache.get(userId);
+    if (userLanguage === undefined) {
+      const userSettings = await UserSettingsModel.findOne({
+        userId: new Types.ObjectId(userId),
+      }).select('language').lean().exec();
+      userLanguage = userSettings?.language ?? 'en';
+      userLanguageCache.set(userId, userLanguage);
+    }
+
+    // Get localized messages
+    const messages = getEventReminderMessages(userLanguage);
+
     let scheduledCount = 0;
 
     for (const minutes of reminderMinutes) {
@@ -58,19 +75,13 @@ export class EventReminderService {
         continue;
       }
 
-      // Format notification content
+      // Format notification content with i18n
       const emoji = this.getEventTypeEmoji(eventType);
       const formattedDate = formatInTimeZone(startTime, timezone, 'MMM d, HH:mm');
 
-      const notificationTitle = petName
-        ? `${emoji} ${petName}: ${eventTitle}`
-        : `${emoji} ${eventTitle}`;
-
-      const notificationBody = minutes >= 1440
-        ? `${formattedDate} (${Math.floor(minutes / 1440)} gün sonra)`
-        : minutes >= 60
-          ? `${formattedDate} (${Math.floor(minutes / 60)} saat sonra)`
-          : `${formattedDate} (${minutes} dakika sonra)`;
+      const notificationTitle = messages.getTitle(emoji, petName, eventTitle);
+      const timeOffset = messages.getTimeOffset(minutes);
+      const notificationBody = `${formattedDate} (${timeOffset})`;
 
       // Send to all user devices
       const result = await pushNotificationService.sendToUser(userId, {
@@ -157,6 +168,9 @@ export class EventReminderService {
 
     // Cache for user timezones to avoid repeated DB queries
     const userTimezoneCache = new Map<string, string>();
+
+    // Clear language cache at the start of batch processing
+    userLanguageCache.clear();
 
     // Base query for upcoming events with reminders
     const baseQuery = {

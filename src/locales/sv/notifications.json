@@ -1,0 +1,23 @@
+{
+  "eventReminder": {
+    "daysLater": "om {{count}} dagar",
+    "hoursLater": "om {{count}} timmar",
+    "minutesLater": "om {{count}} minuter",
+    "title": "{{emoji}} {{petName}}: {{eventTitle}}",
+    "titleNoPet": "{{emoji}} {{eventTitle}}"
+  },
+  "budgetAlert": {
+    "warning": {
+      "title": "Budgetvarning",
+      "body": "Du har använt {{percentage}}% av din månadsbudget. Återstående: {{currency}} {{remaining}}"
+    },
+    "critical": {
+      "title": "Budget överskridet",
+      "body": "Du har överskridit din månadsbudget med {{currency}} {{exceeded}}. Nuvarande utgifter: {{currency}} {{current}} / {{currency}} {{budget}}"
+    }
+  },
+  "feedingReminder": {
+    "title": "🍽️ Matdags för {{petName}}",
+    "body": "Dags att mata {{petName}}: {{amount}} {{foodType}}"
+  }
+}

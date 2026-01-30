@@ -1,0 +1,23 @@
+{
+  "eventReminder": {
+    "daysLater": "بعد {{count}} يوم",
+    "hoursLater": "بعد {{count}} ساعة",
+    "minutesLater": "بعد {{count}} دقيقة",
+    "title": "{{emoji}} {{petName}}: {{eventTitle}}",
+    "titleNoPet": "{{emoji}} {{eventTitle}}"
+  },
+  "budgetAlert": {
+    "warning": {
+      "title": "تنبيه الميزانية",
+      "body": "لقد استخدمت {{percentage}}% من ميزانيتك الشهرية. المتبقي: {{currency}} {{remaining}}"
+    },
+    "critical": {
+      "title": "تجاوز الميزانية",
+      "body": "لقد تجاوزت ميزانيتك الشهرية بمقدار {{currency}} {{exceeded}}. الإنفاق الحالي: {{currency}} {{current}} / {{currency}} {{budget}}"
+    }
+  },
+  "feedingReminder": {
+    "title": "🍽️ وقت الطعام لـ {{petName}}",
+    "body": "حان وقت إطعام {{petName}}: {{amount}} من {{foodType}}"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "eventReminder": {
+    "daysLater": "{{count}} päivän kuluttua",
+    "hoursLater": "{{count}} tunnin kuluttua",
+    "minutesLater": "{{count}} minuutin kuluttua",
+    "title": "{{emoji}} {{petName}}: {{eventTitle}}",
+    "titleNoPet": "{{emoji}} {{eventTitle}}"
+  },
+  "budgetAlert": {
+    "warning": {
+      "title": "Budjettivaroitus",
+      "body": "Olet käyttänyt {{percentage}}% kuukausibudjetistasi. Jäljellä: {{currency}} {{remaining}}"
+    },
+    "critical": {
+      "title": "Budjetti ylitetty",
+      "body": "Olet ylittänyt kuukausibudjettisi {{currency}} {{exceeded}}. Nykyiset menot: {{currency}} {{current}} / {{currency}} {{budget}}"
+    }
+  },
+  "feedingReminder": {
+    "title": "🍽️ Ruokinta-aika {{petName}}",
+    "body": "Aika ruokkia {{petName}}: {{amount}} {{foodType}}"
+  }
+}

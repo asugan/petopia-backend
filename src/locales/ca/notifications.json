@@ -1,0 +1,23 @@
+{
+  "eventReminder": {
+    "daysLater": "d'aquí a {{count}} dies",
+    "hoursLater": "d'aquí a {{count}} hores",
+    "minutesLater": "d'aquí a {{count}} minuts",
+    "title": "{{emoji}} {{petName}}: {{eventTitle}}",
+    "titleNoPet": "{{emoji}} {{eventTitle}}"
+  },
+  "budgetAlert": {
+    "warning": {
+      "title": "Alerta de pressupost",
+      "body": "Heu utilitzat el {{percentage}}% del vostre pressupost mensual. Restant: {{currency}} {{remaining}}"
+    },
+    "critical": {
+      "title": "Pressupost excedit",
+      "body": "Heu excedit el vostre pressupost mensual en {{currency}} {{exceeded}}. Despesa actual: {{currency}} {{current}} / {{currency}} {{budget}}"
+    }
+  },
+  "feedingReminder": {
+    "title": "🍽️ Hora de menjar per {{petName}}",
+    "body": "És hora d'alimentar {{petName}}: {{amount}} de {{foodType}}"
+  }
+}

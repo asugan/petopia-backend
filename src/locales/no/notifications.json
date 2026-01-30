@@ -1,0 +1,23 @@
+{
+  "eventReminder": {
+    "daysLater": "om {{count}} dager",
+    "hoursLater": "om {{count}} timer",
+    "minutesLater": "om {{count}} minutter",
+    "title": "{{emoji}} {{petName}}: {{eventTitle}}",
+    "titleNoPet": "{{emoji}} {{eventTitle}}"
+  },
+  "budgetAlert": {
+    "warning": {
+      "title": "Budsjettvarsel",
+      "body": "Du har brukt {{percentage}}% av månedsbudsjettet ditt. Gjenstående: {{currency}} {{remaining}}"
+    },
+    "critical": {
+      "title": "Budsjett overskredet",
+      "body": "Du har overskredet månedsbudsjettet ditt med {{currency}} {{exceeded}}. Nåværende utgifter: {{currency}} {{current}} / {{currency}} {{budget}}"
+    }
+  },
+  "feedingReminder": {
+    "title": "🍽️ Fôringstid for {{petName}}",
+    "body": "På tide å mate {{petName}}: {{amount}} {{foodType}}"
+  }
+}

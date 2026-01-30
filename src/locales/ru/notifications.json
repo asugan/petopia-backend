@@ -1,0 +1,23 @@
+{
+  "eventReminder": {
+    "daysLater": "через {{count}} дн.",
+    "hoursLater": "через {{count}} ч.",
+    "minutesLater": "через {{count}} мин.",
+    "title": "{{emoji}} {{petName}}: {{eventTitle}}",
+    "titleNoPet": "{{emoji}} {{eventTitle}}"
+  },
+  "budgetAlert": {
+    "warning": {
+      "title": "Предупреждение о бюджете",
+      "body": "Вы использовали {{percentage}}% месячного бюджета. Осталось: {{currency}} {{remaining}}"
+    },
+    "critical": {
+      "title": "Превышение бюджета",
+      "body": "Вы превысили месячный бюджет на {{currency}} {{exceeded}}. Текущие расходы: {{currency}} {{current}} / {{currency}} {{budget}}"
+    }
+  },
+  "feedingReminder": {
+    "title": "🍽️ Время кормления {{petName}}",
+    "body": "Пора накормить {{petName}}: {{amount}} {{foodType}}"
+  }
+}

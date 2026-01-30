@@ -1,0 +1,23 @@
+{
+  "eventReminder": {
+    "daysLater": "בעוד {{count}} ימים",
+    "hoursLater": "בעוד {{count}} שעות",
+    "minutesLater": "בעוד {{count}} דקות",
+    "title": "{{emoji}} {{petName}}: {{eventTitle}}",
+    "titleNoPet": "{{emoji}} {{eventTitle}}"
+  },
+  "budgetAlert": {
+    "warning": {
+      "title": "התראת תקציב",
+      "body": "השתמשת ב-{{percentage}}% מהתקציב החודשי שלך. נותר: {{currency}} {{remaining}}"
+    },
+    "critical": {
+      "title": "חריגה מהתקציב",
+      "body": "חרגת מהתקציב החודשי שלך ב-{{currency}} {{exceeded}}. הוצאה נוכחית: {{currency}} {{current}} / {{currency}} {{budget}}"
+    }
+  },
+  "feedingReminder": {
+    "title": "🍽️ זמן האכלה עבור {{petName}}",
+    "body": "הגיע הזמן להאכיל את {{petName}}: {{amount}} של {{foodType}}"
+  }
+}

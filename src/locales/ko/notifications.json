@@ -1,0 +1,23 @@
+{
+  "eventReminder": {
+    "daysLater": "{{count}}일 후",
+    "hoursLater": "{{count}}시간 후",
+    "minutesLater": "{{count}}분 후",
+    "title": "{{emoji}} {{petName}}: {{eventTitle}}",
+    "titleNoPet": "{{emoji}} {{eventTitle}}"
+  },
+  "budgetAlert": {
+    "warning": {
+      "title": "예산 알림",
+      "body": "월간 예산의 {{percentage}}%를 사용했습니다. 남은 금액: {{currency}} {{remaining}}"
+    },
+    "critical": {
+      "title": "예산 초과",
+      "body": "월간 예산을 {{currency}} {{exceeded}} 초과했습니다. 현재 지출: {{currency}} {{current}} / {{currency}} {{budget}}"
+    }
+  },
+  "feedingReminder": {
+    "title": "🍽️ {{petName}} 먹이 시간",
+    "body": "{{petName}}에게 {{foodType}} {{amount}}를 주세요"
+  }
+}

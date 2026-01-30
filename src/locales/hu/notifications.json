@@ -1,0 +1,23 @@
+{
+  "eventReminder": {
+    "daysLater": "{{count}} nap múlva",
+    "hoursLater": "{{count}} óra múlva",
+    "minutesLater": "{{count}} perc múlva",
+    "title": "{{emoji}} {{petName}}: {{eventTitle}}",
+    "titleNoPet": "{{emoji}} {{eventTitle}}"
+  },
+  "budgetAlert": {
+    "warning": {
+      "title": "Költségvetési figyelmeztetés",
+      "body": "A havi költségvetés {{percentage}}%-át használta fel. Hátralévő: {{currency}} {{remaining}}"
+    },
+    "critical": {
+      "title": "Költségvetés túllépve",
+      "body": "{{currency}} {{exceeded}}-val túllépte a havi költségvetését. Jelenlegi kiadások: {{currency}} {{current}} / {{currency}} {{budget}}"
+    }
+  },
+  "feedingReminder": {
+    "title": "🍽️ Etetési idő {{petName}} számára",
+    "body": "Ideje etetni {{petName}}-t: {{amount}} {{foodType}}"
+  }
+}

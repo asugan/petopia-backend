@@ -1,0 +1,23 @@
+{
+  "eventReminder": {
+    "daysLater": "sau {{count}} ngày",
+    "hoursLater": "sau {{count}} giờ",
+    "minutesLater": "sau {{count}} phút",
+    "title": "{{emoji}} {{petName}}: {{eventTitle}}",
+    "titleNoPet": "{{emoji}} {{eventTitle}}"
+  },
+  "budgetAlert": {
+    "warning": {
+      "title": "Cảnh báo ngân sách",
+      "body": "Bạn đã sử dụng {{percentage}}% ngân sách hàng tháng. Còn lại: {{currency}} {{remaining}}"
+    },
+    "critical": {
+      "title": "Vượt ngân sách",
+      "body": "Bạn đã vượt ngân sách hàng tháng {{currency}} {{exceeded}}. Chi tiêu hiện tại: {{currency}} {{current}} / {{currency}} {{budget}}"
+    }
+  },
+  "feedingReminder": {
+    "title": "🍽️ Giờ cho ăn của {{petName}}",
+    "body": "Đến giờ cho {{petName}} ăn: {{amount}} {{foodType}}"
+  }
+}

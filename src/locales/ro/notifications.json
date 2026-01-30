@@ -1,0 +1,23 @@
+{
+  "eventReminder": {
+    "daysLater": "peste {{count}} zile",
+    "hoursLater": "peste {{count}} ore",
+    "minutesLater": "peste {{count}} minute",
+    "title": "{{emoji}} {{petName}}: {{eventTitle}}",
+    "titleNoPet": "{{emoji}} {{eventTitle}}"
+  },
+  "budgetAlert": {
+    "warning": {
+      "title": "Alertă buget",
+      "body": "Ați folosit {{percentage}}% din bugetul lunar. Rămas: {{currency}} {{remaining}}"
+    },
+    "critical": {
+      "title": "Buget depășit",
+      "body": "Ați depășit bugetul lunar cu {{currency}} {{exceeded}}. Cheltuieli actuale: {{currency}} {{current}} / {{currency}} {{budget}}"
+    }
+  },
+  "feedingReminder": {
+    "title": "🍽️ Ora de hranire pentru {{petName}}",
+    "body": "Este timpul să hrăniți {{petName}}: {{amount}} de {{foodType}}"
+  }
+}

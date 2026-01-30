@@ -1,0 +1,23 @@
+{
+  "eventReminder": {
+    "daysLater": "za {{count}} dni",
+    "hoursLater": "za {{count}} godzin",
+    "minutesLater": "za {{count}} minut",
+    "title": "{{emoji}} {{petName}}: {{eventTitle}}",
+    "titleNoPet": "{{emoji}} {{eventTitle}}"
+  },
+  "budgetAlert": {
+    "warning": {
+      "title": "Alert budżetowy",
+      "body": "Wykorzystałeś {{percentage}}% miesięcznego budżetu. Pozostało: {{currency}} {{remaining}}"
+    },
+    "critical": {
+      "title": "Przekroczony budżet",
+      "body": "Przekroczyłeś miesięczny budżet o {{currency}} {{exceeded}}. Aktualne wydatki: {{currency}} {{current}} / {{currency}} {{budget}}"
+    }
+  },
+  "feedingReminder": {
+    "title": "🍽️ Czas karmienia {{petName}}",
+    "body": "Czas nakarmić {{petName}}: {{amount}} {{foodType}}"
+  }
+}

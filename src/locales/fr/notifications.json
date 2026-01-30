@@ -1,0 +1,23 @@
+{
+  "eventReminder": {
+    "daysLater": "{{count}} jours plus tard",
+    "hoursLater": "{{count}} heures plus tard",
+    "minutesLater": "{{count}} minutes plus tard",
+    "title": "{{emoji}} {{petName}}: {{eventTitle}}",
+    "titleNoPet": "{{emoji}} {{eventTitle}}"
+  },
+  "budgetAlert": {
+    "warning": {
+      "title": "Alerte budget",
+      "body": "Vous avez utilisé {{percentage}}% de votre budget mensuel. Restant: {{currency}} {{remaining}}"
+    },
+    "critical": {
+      "title": "Budget dépassé",
+      "body": "Vous avez dépassé votre budget mensuel de {{currency}} {{exceeded}}. Dépenses actuelles: {{currency}} {{current}} / {{currency}} {{budget}}"
+    }
+  },
+  "feedingReminder": {
+    "title": "🍽️ Heure de repas pour {{petName}}",
+    "body": "Il est temps de nourrir {{petName}}: {{amount}} de {{foodType}}"
+  }
+}

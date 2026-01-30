@@ -1,0 +1,23 @@
+{
+  "eventReminder": {
+    "daysLater": "{{count}} gün sonra",
+    "hoursLater": "{{count}} saat sonra",
+    "minutesLater": "{{count}} dakika sonra",
+    "title": "{{emoji}} {{petName}}: {{eventTitle}}",
+    "titleNoPet": "{{emoji}} {{eventTitle}}"
+  },
+  "budgetAlert": {
+    "warning": {
+      "title": "Bütçe Uyarısı",
+      "body": "Aylık bütçenizin %{{percentage}}'ini kullandınız. Kalan: {{currency}} {{remaining}}"
+    },
+    "critical": {
+      "title": "Bütçe Aşıldı",
+      "body": "Aylık bütçenizi {{currency}} {{exceeded}} kadar aştınız. Mevcut harcama: {{currency}} {{current}} / {{currency}} {{budget}}"
+    }
+  },
+  "feedingReminder": {
+    "title": "🍽️ {{petName}} beslenme zamanı",
+    "body": "{{petName}} besleme zamanı: {{amount}} {{foodType}}"
+  }
+}

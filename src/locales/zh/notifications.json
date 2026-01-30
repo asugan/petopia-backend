@@ -1,0 +1,23 @@
+{
+  "eventReminder": {
+    "daysLater": "{{count}}天后",
+    "hoursLater": "{{count}}小时后",
+    "minutesLater": "{{count}}分钟后",
+    "title": "{{emoji}} {{petName}}: {{eventTitle}}",
+    "titleNoPet": "{{emoji}} {{eventTitle}}"
+  },
+  "budgetAlert": {
+    "warning": {
+      "title": "预算提醒",
+      "body": "您已使用月预算的{{percentage}}%。剩余：{{currency}} {{remaining}}"
+    },
+    "critical": {
+      "title": "预算超支",
+      "body": "您已超支月预算{{currency}} {{exceeded}}。当前支出：{{currency}} {{current}} / {{currency}} {{budget}}"
+    }
+  },
+  "feedingReminder": {
+    "title": "🍽️ {{petName}}的喂食时间",
+    "body": "该喂{{petName}}了：{{amount}} {{foodType}}"
+  }
+}

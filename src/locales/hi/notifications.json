@@ -1,0 +1,23 @@
+{
+  "eventReminder": {
+    "daysLater": "{{count}} दिन बाद",
+    "hoursLater": "{{count}} घंटे बाद",
+    "minutesLater": "{{count}} मिनट बाद",
+    "title": "{{emoji}} {{petName}}: {{eventTitle}}",
+    "titleNoPet": "{{emoji}} {{eventTitle}}"
+  },
+  "budgetAlert": {
+    "warning": {
+      "title": "बजेट अलर्ट",
+      "body": "आपने अपने मासिक बजेट का {{percentage}}% उपयोग किया है। शेष: {{currency}} {{remaining}}"
+    },
+    "critical": {
+      "title": "बजेट पार",
+      "body": "आपने अपने मासिक बजेट को {{currency}} {{exceeded}} से पार कर लिया है। वर्तमान खर्च: {{currency}} {{current}} / {{currency}} {{budget}}"
+    }
+  },
+  "feedingReminder": {
+    "title": "🍽️ {{petName}} के लिए खाना का समय",
+    "body": "{{petName}} को खिलाने का समय: {{amount}} {{foodType}}"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "eventReminder": {
+    "daysLater": "za {{count}} dana",
+    "hoursLater": "za {{count}} sati",
+    "minutesLater": "za {{count}} minuta",
+    "title": "{{emoji}} {{petName}}: {{eventTitle}}",
+    "titleNoPet": "{{emoji}} {{eventTitle}}"
+  },
+  "budgetAlert": {
+    "warning": {
+      "title": "Upozorenje o proračunu",
+      "body": "Iskoristili ste {{percentage}}% mjesečnog proračuna. Preostalo: {{currency}} {{remaining}}"
+    },
+    "critical": {
+      "title": "Proračun prekoračen",
+      "body": "Prekoračili ste mjesečni proračun za {{currency}} {{exceeded}}. Trenutni troškovi: {{currency}} {{current}} / {{currency}} {{budget}}"
+    }
+  },
+  "feedingReminder": {
+    "title": "🍽️ Vrijeme hranjenja za {{petName}}",
+    "body": "Vrijeme je da nahranite {{petName}}: {{amount}} {{foodType}}"
+  }
+}

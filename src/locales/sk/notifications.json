@@ -1,0 +1,23 @@
+{
+  "eventReminder": {
+    "daysLater": "o {{count}} dní",
+    "hoursLater": "o {{count}} hodín",
+    "minutesLater": "o {{count}} minút",
+    "title": "{{emoji}} {{petName}}: {{eventTitle}}",
+    "titleNoPet": "{{emoji}} {{eventTitle}}"
+  },
+  "budgetAlert": {
+    "warning": {
+      "title": "Upozornenie na rozpočet",
+      "body": "Použili ste {{percentage}}% mesačného rozpočtu. Zostáva: {{currency}} {{remaining}}"
+    },
+    "critical": {
+      "title": "Rozpočet prekročený",
+      "body": "Prekročili ste mesačný rozpočet o {{currency}} {{exceeded}}. Aktuálne výdavky: {{currency}} {{current}} / {{currency}} {{budget}}"
+    }
+  },
+  "feedingReminder": {
+    "title": "🍽️ Čas kŕmenia {{petName}}",
+    "body": "Je čas nakŕmiť {{petName}}: {{amount}} {{foodType}}"
+  }
+}

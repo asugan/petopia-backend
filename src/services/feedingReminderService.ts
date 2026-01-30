@@ -1,9 +1,12 @@
 import { Types } from 'mongoose';
 import { pushNotificationService } from './pushNotificationService.js';
 import { FeedingNotificationModel, FeedingScheduleModel, PetModel, UserDeviceModel, UserSettingsModel } from '../models/mongoose/index.js';
-import { feedingReminderMessages } from '../config/notificationMessages.js';
+import { getFeedingReminderMessages } from '../config/notificationMessages.js';
 import { logger } from '../utils/logger.js';
 import { formatInTimeZone, fromZonedTime, toZonedTime } from 'date-fns-tz';
+
+// Cache for user languages to avoid repeated DB queries
+const userLanguageCache = new Map<string, string>();
 
 export interface FeedingReminderConfig {
   scheduleId: string;
@@ -26,7 +29,7 @@ export interface FeedingReminderResult {
 
 /**
  * Feeding Reminder Service
- * Handles scheduling and sending feeding reminder push notifications
+ * Handles scheduling and sending feeding reminder push notifications with i18n support
  */
 export class FeedingReminderService {
   /**
@@ -185,9 +188,22 @@ export class FeedingReminderService {
 
       const tokens = devices.map(d => d.expoPushToken);
 
-      // Use configurable message templates
-      const title = feedingReminderMessages.title(pet.name);
-      const body = feedingReminderMessages.body({
+      // Get user's language preference
+      let userLanguage = userLanguageCache.get(userId);
+      if (userLanguage === undefined) {
+        const userSettings = await UserSettingsModel.findOne({
+          userId: new Types.ObjectId(userId),
+        }).select('language').lean().exec();
+        userLanguage = userSettings?.language ?? 'en';
+        userLanguageCache.set(userId, userLanguage);
+      }
+
+      // Get localized messages
+      const messages = getFeedingReminderMessages(userLanguage);
+
+      // Use i18n-enabled message templates
+      const title = messages.title(pet.name);
+      const body = messages.body({
         petName: pet.name,
         amount: schedule.amount,
         foodType: schedule.foodType,
@@ -358,6 +374,13 @@ export class FeedingReminderService {
     await FeedingScheduleModel.findByIdAndUpdate(scheduleId, {
       $set: { nextNotificationTime },
     });
+  }
+
+  /**
+   * Clear the language cache (useful for testing or when language changes)
+   */
+  clearLanguageCache(): void {
+    userLanguageCache.clear();
   }
 }
 

@@ -38,6 +38,8 @@
     "express": "^5.1.0",
     "express-rate-limit": "^8.1.0",
     "helmet": "^8.1.0",
+    "i18next": "^25.8.0",
+    "i18next-fs-backend": "^2.6.1",
     "mongodb": "^7.0.0",
     "mongoose": "^9.0.1",
     "morgan": "^1.10.1",

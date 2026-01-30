@@ -2,7 +2,7 @@ import { Types } from 'mongoose';
 import { feedingReminderService } from '../services/feedingReminderService.js';
 import { FeedingNotificationModel, FeedingScheduleModel, PetModel, UserDeviceModel, UserSettingsModel } from '../models/mongoose/index.js';
 import { pushNotificationService } from '../services/pushNotificationService.js';
-import { feedingReminderMessages } from '../config/notificationMessages.js';
+import { getFeedingReminderMessages } from '../config/notificationMessages.js';
 import { logger } from '../utils/logger.js';
 
 // Configurable batch limit from environment
@@ -10,6 +10,9 @@ const BATCH_LIMIT = parseInt(process.env.FEEDING_REMINDER_BATCH_LIMIT ?? '100', 
 
 // Max retry attempts for failed notifications
 const MAX_RETRY_ATTEMPTS = parseInt(process.env.FEEDING_REMINDER_MAX_RETRIES ?? '3', 10);
+
+// Cache for user languages to avoid repeated DB queries during batch processing
+const userLanguageCache = new Map<string, string>();
 
 interface FeedingScheduleForReminder {
   _id: Types.ObjectId;
@@ -67,6 +70,9 @@ export async function checkFeedingReminders(): Promise<{
       return { checked: 0, sent: 0, failed: 0, retried: 0 };
     }
 
+    // Clear language cache at the start of batch processing
+    userLanguageCache.clear();
+
     // Batch fetch all schedules and pets to avoid N+1 queries
     const scheduleIds = [...new Set(pendingNotifications.map(n => n.scheduleId.toString()))];
     const schedules = await FeedingScheduleModel.find({ _id: { $in: scheduleIds } }).lean() as IFeedingScheduleDoc[];
@@ -107,10 +113,24 @@ export async function checkFeedingReminders(): Promise<{
           continue;
         }
 
-        // Send the notification using configurable message templates
-        const result = await pushNotificationService.sendToUser(notification.userId.toString(), {
-          title: feedingReminderMessages.title(pet.name),
-          body: feedingReminderMessages.body({
+        // Get user's language preference
+        const userId = notification.userId.toString();
+        let userLanguage = userLanguageCache.get(userId);
+        if (userLanguage === undefined) {
+          const userSettings = await UserSettingsModel.findOne({
+            userId: notification.userId,
+          }).select('language').lean().exec();
+          userLanguage = userSettings?.language ?? 'en';
+          userLanguageCache.set(userId, userLanguage);
+        }
+
+        // Get localized messages
+        const messages = getFeedingReminderMessages(userLanguage);
+
+        // Send the notification using i18n-enabled message templates
+        const result = await pushNotificationService.sendToUser(userId, {
+          title: messages.title(pet.name),
+          body: messages.body({
             petName: pet.name,
             amount: schedule.amount,
             foodType: schedule.foodType,

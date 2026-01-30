@@ -1,0 +1,23 @@
+{
+  "eventReminder": {
+    "daysLater": "{{count}}日後",
+    "hoursLater": "{{count}}時間後",
+    "minutesLater": "{{count}}分後",
+    "title": "{{emoji}} {{petName}}: {{eventTitle}}",
+    "titleNoPet": "{{emoji}} {{eventTitle}}"
+  },
+  "budgetAlert": {
+    "warning": {
+      "title": "予算アラート",
+      "body": "月間予算の{{percentage}}%を使用しました。残り: {{currency}} {{remaining}}"
+    },
+    "critical": {
+      "title": "予算超過",
+      "body": "月間予算を{{currency}} {{exceeded}}超過しました。現在の支出: {{currency}} {{current}} / {{currency}} {{budget}}"
+    }
+  },
+  "feedingReminder": {
+    "title": "🍽️ {{petName}}の給餌時間",
+    "body": "{{petName}}に{{foodType}}を{{amount}}与える時間です"
+  }
+}
