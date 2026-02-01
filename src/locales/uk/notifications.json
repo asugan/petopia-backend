@@ -1,0 +1,23 @@
+{
+  "eventReminder": {
+    "daysLater": "{{count}} днів потому",
+    "hoursLater": "{{count}} годин тому",
+    "minutesLater": "{{count}} хвилин тому",
+    "title": "{{emoji}} {{petName}}: {{eventTitle}}",
+    "titleNoPet": "{{emoji}} {{eventTitle}}"
+  },
+  "budgetAlert": {
+    "warning": {
+      "title": "Попередження про бюджет",
+      "body": "Ви витратили {{percentage}}% вашого місячного бюджету. Залишилося: {{currency}} {{remaining}}."
+    },
+    "critical": {
+      "title": "Бюджет перевищено",
+      "body": "Ви перевищили місячний бюджет на {{currency}} {{exceeded}}. Поточні витрати: {{currency}} {{current}} / {{currency}} {{budget}}"
+    }
+  },
+  "feedingReminder": {
+    "title": "🍽️ Час годування для {{petName}}",
+    "body": "Пора нагодувати {{petName}}: {{amount}} {{foodType}}"
+  }
+}
