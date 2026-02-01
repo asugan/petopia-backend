@@ -1,0 +1,23 @@
+{
+  "eventReminder": {
+    "daysLater": "{{count}} hari yang lalu",
+    "hoursLater": "{{count}} jam yang lalu",
+    "minutesLater": "{{count}} menit yang lalu",
+    "title": "{{emoji}} {{petName}}: {{eventTitle}}",
+    "titleNoPet": "{{emoji}} {{eventTitle}}"
+  },
+  "budgetAlert": {
+    "warning": {
+      "title": "Peringatan Anggaran",
+      "body": "Anda telah menggunakan {{percentage}}% dari anggaran bulanan Anda. Tersisa: {{currency}} {{remaining}}."
+    },
+    "critical": {
+      "title": "Anggaran Terlampaui",
+      "body": "Anda telah melampaui anggaran bulanan Anda sebesar {{currency}} {{exceeded}}. Pengeluaran saat ini: {{currency}} {{current}} / {{currency}} {{budget}}"
+    }
+  },
+  "feedingReminder": {
+    "title": "🍽️ Waktu Makan untuk {{petName}}",
+    "body": "Saatnya memberi makan {{petName}}: {{amount}} {{foodType}}"
+  }
+}
