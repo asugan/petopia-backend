@@ -1,6 +1,10 @@
 import { Types } from 'mongoose';
 import { z } from 'zod';
-import { EXPO_PUSH_API_URL, expoPushConfig, isExpoPushErrorCode } from '../config/expoPushConfig.js';
+import {
+  EXPO_PUSH_API_URL,
+  expoPushConfig,
+  isExpoPushErrorCode,
+} from '../config/expoPushConfig.js';
 import { logger } from '../utils/logger.js';
 import { UserDeviceModel } from '../models/mongoose/userDevices.js';
 
@@ -37,10 +41,12 @@ export interface ExpoPushMessage {
 const ExpoPushResultSchema = z.object({
   status: z.enum(['ok', 'error']),
   message: z.string().optional(),
-  details: z.object({
-    error: z.string().optional(),
-    fault: z.string().optional(),
-  }).optional(),
+  details: z
+    .object({
+      error: z.string().optional(),
+      fault: z.string().optional(),
+    })
+    .optional(),
   pushNotificationId: z.string().optional(),
 });
 
@@ -122,29 +128,34 @@ export class PushNotificationService {
       const response = await this.sendToExpo([message]);
 
       const result = response.data[0];
-      
+
       if (!result) {
         return { success: false, error: 'No result from Expo API' };
       }
 
       if (result.status === 'ok' && result.pushNotificationId) {
-        logger.info(`Push notification sent successfully: ${result.pushNotificationId}`);
+        logger.info(
+          `Push notification sent successfully: ${result.pushNotificationId}`
+        );
         return { success: true, messageId: result.pushNotificationId };
       }
 
       const error = result.details?.error ?? result.message ?? 'Unknown error';
 
       if (isExpoPushErrorCode(error)) {
-        const shouldRemove = error === 'DeviceNotRegistered' || error === 'InvalidCredentials';
-        logger.warn(`Push notification failed: ${error}`, { shouldRemoveToken: shouldRemove });
+        const shouldRemove =
+          error === 'DeviceNotRegistered' || error === 'InvalidCredentials';
+        logger.warn(`Push notification failed: ${error}`, {
+          shouldRemoveToken: shouldRemove,
+        });
         return { success: false, error, shouldRemoveToken: shouldRemove };
       }
 
       logger.error(`Push notification failed: ${error}`);
       return { success: false, error };
-
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
       logger.error(`Push notification error: ${errorMessage}`);
       return { success: false, error: errorMessage };
     }
@@ -158,7 +169,10 @@ export class PushNotificationService {
     payload: PushNotificationPayload
   ): Promise<PushNotificationResult[]> {
     if (!this.isConfigured()) {
-      return expoPushTokens.map(() => ({ success: false, error: 'Push notifications not configured' }));
+      return expoPushTokens.map(() => ({
+        success: false,
+        error: 'Push notifications not configured',
+      }));
     }
 
     const messages: ExpoPushMessage[] = expoPushTokens.map(token => ({
@@ -174,21 +188,26 @@ export class PushNotificationService {
     try {
       const response = await this.sendToExpo(messages);
 
-      return response.data.map((result) => {
+      return response.data.map(result => {
         if (result.status === 'ok' && result.pushNotificationId) {
           return { success: true, messageId: result.pushNotificationId };
         }
 
-        const error = result.details?.error ?? result.message ?? 'Unknown error';
-        const shouldRemove = error === 'DeviceNotRegistered' || error === 'InvalidCredentials';
+        const error =
+          result.details?.error ?? result.message ?? 'Unknown error';
+        const shouldRemove =
+          error === 'DeviceNotRegistered' || error === 'InvalidCredentials';
 
         return { success: false, error, shouldRemoveToken: shouldRemove };
       });
-
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
       logger.error(`Bulk push notification error: ${errorMessage}`);
-      return expoPushTokens.map(() => ({ success: false, error: errorMessage }));
+      return expoPushTokens.map(() => ({
+        success: false,
+        error: errorMessage,
+      }));
     }
   }
 
@@ -199,7 +218,10 @@ export class PushNotificationService {
     userId: string,
     payload: PushNotificationPayload
   ): Promise<{ sent: number; failed: number; tokensToRemove: string[] }> {
-    const devices = await UserDeviceModel.find({ userId: new Types.ObjectId(userId), isActive: true });
+    const devices = await UserDeviceModel.find({
+      userId: new Types.ObjectId(userId),
+      isActive: true,
+    });
 
     if (devices.length === 0) {
       logger.info(`No active devices found for user ${userId}`);
@@ -284,7 +306,9 @@ export class PushNotificationService {
     const devices = await UserDeviceModel.find({
       userId: new Types.ObjectId(userId),
       isActive: true,
-    }).select('expoPushToken').lean();
+    })
+      .select('expoPushToken')
+      .lean();
 
     return devices.map(d => d.expoPushToken);
   }
@@ -293,7 +317,9 @@ export class PushNotificationService {
    * Internal method to send messages to Expo Push API with batching and retry
    * Handles Expo's 100 message limit per request and implements exponential backoff
    */
-  private async sendToExpo(messages: ExpoPushMessage[]): Promise<ExpoPushResponse> {
+  private async sendToExpo(
+    messages: ExpoPushMessage[]
+  ): Promise<ExpoPushResponse> {
     if (messages.length === 0) {
       return { data: [] };
     }
@@ -316,19 +342,23 @@ export class PushNotificationService {
           break; // Success, exit retry loop
         } catch (error) {
           lastError = error instanceof Error ? error : new Error(String(error));
-          
+
           // Check if error is retryable
           const isRetryable = this.isRetryableError(lastError);
-          
+
           if (!isRetryable || attempt === MAX_RETRIES - 1) {
             // Non-retryable error or last attempt
-            logger.error(`Push notification batch ${batchIndex + 1}/${batches.length} failed after ${attempt + 1} attempts: ${lastError.message}`);
+            logger.error(
+              `Push notification batch ${batchIndex + 1}/${batches.length} failed after ${attempt + 1} attempts: ${lastError.message}`
+            );
             break;
           }
 
           // Calculate exponential backoff delay
           const delayMs = INITIAL_RETRY_DELAY_MS * Math.pow(2, attempt);
-          logger.warn(`Push notification batch ${batchIndex + 1} attempt ${attempt + 1} failed, retrying in ${delayMs}ms: ${lastError.message}`);
+          logger.warn(
+            `Push notification batch ${batchIndex + 1} attempt ${attempt + 1} failed, retrying in ${delayMs}ms: ${lastError.message}`
+          );
           await delay(delayMs);
         }
       }
@@ -351,7 +381,11 @@ export class PushNotificationService {
   /**
    * Send a single batch to Expo API with Zod validation
    */
-  private async sendBatchToExpo(messages: ExpoPushMessage[]): Promise<ExpoPushResponse> {
+  private async sendBatchToExpo(
+    messages: ExpoPushMessage[]
+  ): Promise<ExpoPushResponse> {
+    const plainMessages = messages.map(({ _internal, ...msg }) => msg);
+
     const response = await fetch(EXPO_PUSH_API_URL, {
       method: 'POST',
       headers: {
@@ -359,7 +393,7 @@ export class PushNotificationService {
         Accept: 'application/json',
         Authorization: `Bearer ${this.accessToken}`,
       },
-      body: JSON.stringify({ messages }),
+      body: JSON.stringify(plainMessages),
     });
 
     if (!response.ok) {
@@ -368,13 +402,18 @@ export class PushNotificationService {
     }
 
     const rawData = await response.json();
-    
+
     // Runtime validation with Zod
     const parseResult = ExpoPushResponseSchema.safeParse(rawData);
-    
+
     if (!parseResult.success) {
-      logger.error('Invalid Expo API response format:', parseResult.error.issues);
-      throw new Error(`Invalid Expo API response: ${parseResult.error.message}`);
+      logger.error(
+        'Invalid Expo API response format:',
+        parseResult.error.issues
+      );
+      throw new Error(
+        `Invalid Expo API response: ${parseResult.error.message}`
+      );
     }
 
     return parseResult.data;
@@ -385,7 +424,7 @@ export class PushNotificationService {
    */
   private isRetryableError(error: Error): boolean {
     const message = error.message.toLowerCase();
-    
+
     // Retryable: rate limits, timeouts, server errors
     const retryablePatterns = [
       'rate limit',
