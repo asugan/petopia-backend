@@ -70,7 +70,7 @@ const apiInfoResponse = {
   success: true,
   data: {
     message: 'Petopia Backend API is running',
-    version: 'v1.1.0',
+    version: 'v1.1.1',
     endpoints: {
       public: {
         health: '/health',
