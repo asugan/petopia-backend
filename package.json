@@ -12,6 +12,7 @@
     "db:clean": "node scripts/clean-mongodb.js",
     "db:status": "node scripts/check-mongodb.js",
     "db:generate-indexes": "node scripts/generate-indexes.js",
+    "db:migrate-timezone": "node scripts/migrate-timezone.cjs",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
