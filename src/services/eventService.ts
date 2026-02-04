@@ -81,9 +81,12 @@ export class EventService {
       .lean()
       .exec();
 
+    // Fix: Handle empty string timezone by checking if it's truthy after trimming
+    const effectiveTimezone = (clientTimezone?.trim() || settings?.timezone || 'UTC');
+    
     const { start, end } = getUTCDateRangeForLocalDate(
       date,
-      clientTimezone ?? settings?.timezone ?? 'UTC'
+      effectiveTimezone
     );
 
     const whereClause: QueryFilter<IEventDocument> = {

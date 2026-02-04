@@ -1,3 +1,5 @@
+import { fromZonedTime } from 'date-fns-tz';
+
 /**
  * Backend date utilities for consistent UTC handling
  *
@@ -198,55 +200,6 @@ function addDaysToDateString(dateStr: string, days: number): string {
   return formatUTCDateString(nextDate);
 }
 
-function getTimeZoneOffsetMinutes(date: Date, timeZone: string): number {
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone,
-    hour12: false,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hourCycle: 'h23',
-  });
-
-  const parts = formatter.formatToParts(date);
-  const values: Record<string, string> = {};
-  for (const part of parts) {
-    if (part.type !== 'literal') {
-      values[part.type] = part.value;
-    }
-  }
-
-  const year = Number(values.year);
-  const month = Number(values.month);
-  const day = Number(values.day);
-  const hour = Number(values.hour);
-  const minute = Number(values.minute);
-  const second = Number(values.second);
-
-  const asUTC = Date.UTC(year, month - 1, day, hour, minute, second);
-  return (asUTC - date.getTime()) / 60000;
-}
-
-function zonedStartOfDayToUTC(dateStr: string, timeZone: string): Date {
-  const [yearStr, monthStr, dayStr] = dateStr.split('-');
-  const year = Number(yearStr);
-  const month = Number(monthStr);
-  const day = Number(dayStr);
-
-  const utcMidnightGuess = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
-
-  let offsetMinutes = getTimeZoneOffsetMinutes(utcMidnightGuess, timeZone);
-  let utcInstant = new Date(utcMidnightGuess.getTime() - offsetMinutes * 60000);
-
-  offsetMinutes = getTimeZoneOffsetMinutes(utcInstant, timeZone);
-  utcInstant = new Date(utcMidnightGuess.getTime() - offsetMinutes * 60000);
-
-  return utcInstant;
-}
-
 export function getUTCDateRangeForLocalDate(
   dateStr: string,
   timeZone: string
@@ -256,7 +209,6 @@ export function getUTCDateRangeForLocalDate(
   }
 
   const safeTimeZone = timeZone || 'UTC';
-
   let tz = safeTimeZone;
   try {
     new Intl.DateTimeFormat('en-US', { timeZone: tz });
@@ -264,12 +216,12 @@ export function getUTCDateRangeForLocalDate(
     tz = 'UTC';
   }
 
-  const start = zonedStartOfDayToUTC(dateStr, tz);
+  const start = fromZonedTime(`${dateStr} 00:00:00`, tz);
 
   const [yearStr, monthStr, dayStr] = dateStr.split('-');
   const nextDate = new Date(Date.UTC(Number(yearStr), Number(monthStr) - 1, Number(dayStr) + 1));
   const nextDateStr = formatUTCDateString(nextDate);
-  const end = zonedStartOfDayToUTC(nextDateStr, tz);
+  const end = fromZonedTime(`${nextDateStr} 00:00:00`, tz);
 
   return { start, end };
 }
