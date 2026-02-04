@@ -1,5 +1,10 @@
 import { HydratedDocument, QueryFilter, Types, UpdateQuery } from 'mongoose';
-import { EventModel, IEventDocument, PetModel, UserSettingsModel } from '../models/mongoose';
+import {
+  EventModel,
+  IEventDocument,
+  PetModel,
+  UserSettingsModel,
+} from '../models/mongoose';
 import { EventQueryParams } from '../types/api';
 import {
   getUTCDateRangeForLocalDate,
@@ -21,7 +26,9 @@ export class EventService {
     const offset = (page - 1) * limit;
 
     // Build where conditions - always filter by userId
-    const whereClause: QueryFilter<IEventDocument> = { userId: new Types.ObjectId(userId) };
+    const whereClause: QueryFilter<IEventDocument> = {
+      userId: new Types.ObjectId(userId),
+    };
 
     if (petId) {
       whereClause.petId = new Types.ObjectId(petId);
@@ -63,7 +70,8 @@ export class EventService {
   async getEventsByDate(
     userId: string,
     date: string,
-    params: EventQueryParams
+    params: EventQueryParams,
+    clientTimezone?: string
   ): Promise<{ events: HydratedDocument<IEventDocument>[]; total: number }> {
     const { page = 1, limit = 10, type } = params;
     const offset = (page - 1) * limit;
@@ -75,7 +83,7 @@ export class EventService {
 
     const { start, end } = getUTCDateRangeForLocalDate(
       date,
-      settings?.timezone ?? 'UTC'
+      clientTimezone ?? settings?.timezone ?? 'UTC'
     );
 
     const whereClause: QueryFilter<IEventDocument> = {
@@ -109,7 +117,10 @@ export class EventService {
   /**
    * Get event by ID, ensuring it belongs to the user
    */
-  async getEventById(userId: string, id: string): Promise<HydratedDocument<IEventDocument> | null> {
+  async getEventById(
+    userId: string,
+    id: string
+  ): Promise<HydratedDocument<IEventDocument> | null> {
     const event = await EventModel.findOne({ _id: id, userId }).exec();
     return event ?? null;
   }
@@ -161,7 +172,10 @@ export class EventService {
    * Delete event, ensuring it belongs to the user
    */
   async deleteEvent(userId: string, id: string): Promise<boolean> {
-    const deletedEvent = await EventModel.findOneAndDelete({ _id: id, userId }).exec();
+    const deletedEvent = await EventModel.findOneAndDelete({
+      _id: id,
+      userId,
+    }).exec();
     return !!deletedEvent;
   }
 
@@ -200,43 +214,44 @@ export class EventService {
       status: 'upcoming',
       startTime: {
         $gte: new Date(boundaries.gte),
-        $lte: new Date(boundaries.lte)
-      }
+        $lte: new Date(boundaries.lte),
+      },
     };
 
     if (petId) {
       whereClause.petId = new Types.ObjectId(petId);
     }
 
-    return await EventModel.find(whereClause)
-      .sort({ startTime: 1 })
-      .exec();
+    return await EventModel.find(whereClause).sort({ startTime: 1 }).exec();
   }
 
   /**
    * Get today's events for a user (UTC-based)
    */
-  async getTodayEvents(userId: string, petId?: string): Promise<HydratedDocument<IEventDocument>[]> {
+  async getTodayEvents(
+    userId: string,
+    petId?: string
+  ): Promise<HydratedDocument<IEventDocument>[]> {
     const settings = await UserSettingsModel.findOne({ userId })
       .select({ timezone: 1 })
       .lean()
       .exec();
-    const todayBoundary = getUTCTodayBoundariesForTimeZone(settings?.timezone ?? 'UTC');
+    const todayBoundary = getUTCTodayBoundariesForTimeZone(
+      settings?.timezone ?? 'UTC'
+    );
 
     const whereClause: QueryFilter<IEventDocument> = {
       userId: new Types.ObjectId(userId),
       startTime: {
         $gte: new Date(todayBoundary.gte),
-        $lte: new Date(todayBoundary.lte)
-      }
+        $lte: new Date(todayBoundary.lte),
+      },
     };
 
     if (petId) {
       whereClause.petId = new Types.ObjectId(petId);
     }
 
-    return await EventModel.find(whereClause)
-      .sort({ startTime: 1 })
-      .exec();
+    return await EventModel.find(whereClause).sort({ startTime: 1 }).exec();
   }
 }

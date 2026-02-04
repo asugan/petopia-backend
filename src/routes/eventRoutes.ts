@@ -48,6 +48,10 @@ const dateParamSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (expected YYYY-MM-DD)'),
 });
 
+const timezoneQuerySchema = z.object({
+  timezone: z.string().optional(),
+});
+
 // Routes
 router.get('/upcoming', eventController.getUpcomingEvents);
 
@@ -56,6 +60,7 @@ router.get('/today', eventController.getTodayEvents);
 router.get(
   '/calendar/:date',
   validateRequest(dateParamSchema, 'params'),
+  validateRequest(timezoneQuerySchema, 'query'),
   eventController.getEventsByDate
 );
 

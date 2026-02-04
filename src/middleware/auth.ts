@@ -26,6 +26,8 @@ export interface AuthenticatedRequest extends Request {
     createdAt: Date;
     updatedAt: Date;
   };
+  validatedQuery?: Record<string, unknown>;
+  validatedParams?: Record<string, unknown>;
 }
 
 /**

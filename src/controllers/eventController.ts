@@ -27,11 +27,15 @@ export class EventController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const petId = toString(req.params.petId) || toString(req.query.petId as string | string[] | undefined);
+      const petId =
+        toString(req.params.petId) ||
+        toString(req.query.petId as string | string[] | undefined);
       const params: EventQueryParams = {
         ...getPaginationParams(req.query),
         type: toString(req.query.type as string | string[] | undefined),
-        startDate: toString(req.query.startDate as string | string[] | undefined),
+        startDate: toString(
+          req.query.startDate as string | string[] | undefined
+        ),
         endDate: toString(req.query.endDate as string | string[] | undefined),
       };
 
@@ -64,6 +68,10 @@ export class EventController {
     try {
       const userId = requireAuth(req);
       const date = toString(req.params.date);
+      const timezone = toString(
+        (req.validatedQuery as { timezone?: string })?.timezone ||
+          (req.query.timezone as string | string[] | undefined)
+      );
       const params: EventQueryParams = {
         ...getPaginationParams(req.query),
         type: toString(req.query.type as string | string[] | undefined),
@@ -76,7 +84,8 @@ export class EventController {
       const { events, total } = await this.eventService.getEventsByDate(
         userId,
         date,
-        params
+        params,
+        timezone
       );
       const page = params.page ?? 1;
       const limit = params.limit ?? 10;
@@ -147,7 +156,9 @@ export class EventController {
       const convertedEventData = {
         ...eventData,
         startTime: parseUTCDate(eventData.startTime),
-        endTime: eventData.endTime ? parseUTCDate(eventData.endTime) : undefined,
+        endTime: eventData.endTime
+          ? parseUTCDate(eventData.endTime)
+          : undefined,
       };
 
       const event = await this.eventService.createEvent(
@@ -178,10 +189,15 @@ export class EventController {
       // Convert string dates to UTC Date objects
       const convertedUpdates: Partial<IEventDocument> = {
         ...updates,
-        startTime: updates.startTime ? parseUTCDate(updates.startTime) : undefined,
-        endTime: updates.endTime !== undefined
-          ? (updates.endTime ? parseUTCDate(updates.endTime) : null)
+        startTime: updates.startTime
+          ? parseUTCDate(updates.startTime)
           : undefined,
+        endTime:
+          updates.endTime !== undefined
+            ? updates.endTime
+              ? parseUTCDate(updates.endTime)
+              : null
+            : undefined,
       } as Partial<IEventDocument>; // Cast needed for null vs undefined/optional
 
       const event = await this.eventService.updateEvent(
@@ -241,7 +257,9 @@ export class EventController {
       let days = 7; // default
 
       if (daysParam !== undefined) {
-        const parsedDays = parseInt(toString(daysParam as string | string[] | undefined));
+        const parsedDays = parseInt(
+          toString(daysParam as string | string[] | undefined)
+        );
 
         // Validate it's a number
         if (isNaN(parsedDays)) {
