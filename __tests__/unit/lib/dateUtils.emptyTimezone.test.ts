@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { getUTCDateRangeForLocalDate, formatDateInTimeZone } from '@/lib/dateUtils';
+import { describe, expect, it } from 'vitest';
+import { getUTCDateRangeForLocalDate } from '@/lib/dateUtils';
 
 describe('getUTCDateRangeForLocalDate with empty/invalid timezone', () => {
   describe('Empty string timezone', () => {

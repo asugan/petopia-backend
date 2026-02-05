@@ -69,7 +69,7 @@ export class EventController {
       const userId = requireAuth(req);
       const date = toString(req.params.date);
       const timezone = toString(
-        (req.validatedQuery as { timezone?: string })?.timezone ||
+        (req.validatedQuery as { timezone?: string })?.timezone ??
           (req.query.timezone as string | string[] | undefined)
       );
       const params: EventQueryParams = {

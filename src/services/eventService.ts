@@ -82,12 +82,14 @@ export class EventService {
       .exec();
 
     // Fix: Handle empty string timezone by checking if it's truthy after trimming
-    const effectiveTimezone = (clientTimezone?.trim() || settings?.timezone || 'UTC');
-    
-    const { start, end } = getUTCDateRangeForLocalDate(
-      date,
-      effectiveTimezone
-    );
+    const effectiveTimezone =
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+      clientTimezone?.trim() ||
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+      settings?.timezone ||
+      'UTC';
+
+    const { start, end } = getUTCDateRangeForLocalDate(date, effectiveTimezone);
 
     const whereClause: QueryFilter<IEventDocument> = {
       userId: new Types.ObjectId(userId),

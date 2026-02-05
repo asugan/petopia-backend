@@ -14,18 +14,24 @@ export const validate = (
 
       // Query validation: req.query is read-only getter, use new property
       if (source === 'query') {
-        (req as AuthenticatedRequest).validatedQuery = validatedData as Record<string, unknown>;
+        (req as AuthenticatedRequest).validatedQuery = validatedData as Record<
+          string,
+          unknown
+        >;
         next();
         return;
       }
 
       // Params validation: also use separate property to avoid read-only issues if any
       if (source === 'params') {
-        (req as AuthenticatedRequest).validatedParams = validatedData as Record<string, unknown>;
+        (req as AuthenticatedRequest).validatedParams = validatedData as Record<
+          string,
+          unknown
+        >;
         // Also keep updating params for backward compatibility if it's writable
         try {
           (req as unknown as Record<string, unknown>)[source] = validatedData;
-        } catch (e) {
+        } catch {
           // Ignore if read-only
         }
         next();

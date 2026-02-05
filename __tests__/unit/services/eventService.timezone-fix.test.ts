@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EventService } from '@/services/eventService';
-import { UserSettingsModel, EventModel } from '@/models/mongoose';
+import { EventModel, UserSettingsModel } from '@/models/mongoose';
 import { Types } from 'mongoose';
 
 // Mock the models

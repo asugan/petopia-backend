@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  getUTCDateRangeForLocalDate,
   formatDateInTimeZone,
+  getUTCDateRangeForLocalDate,
   parseUTCDate,
 } from '@/lib/dateUtils';
 
@@ -53,7 +53,7 @@ describe('getUTCDateRangeForLocalDate', () => {
       const dateStr = '2026-02-04';
       const timeZone = 'Europe/Istanbul';
       
-      const { start, end } = getUTCDateRangeForLocalDate(dateStr, timeZone);
+      const { start } = getUTCDateRangeForLocalDate(dateStr, timeZone);
       
       // Event: 3 Şubat 2026 23:59 Istanbul = 3 Şubat 2026 20:59 UTC
       const previousDayEvent = new Date('2026-02-03T20:59:00.000Z');
@@ -66,7 +66,7 @@ describe('getUTCDateRangeForLocalDate', () => {
       const dateStr = '2026-02-04';
       const timeZone = 'Europe/Istanbul';
       
-      const { start, end } = getUTCDateRangeForLocalDate(dateStr, timeZone);
+      const { end } = getUTCDateRangeForLocalDate(dateStr, timeZone);
       
       // Event: 5 Şubat 2026 00:01 Istanbul = 4 Şubat 2026 21:01 UTC
       const nextDayEvent = new Date('2026-02-04T21:01:00.000Z');
