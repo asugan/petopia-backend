@@ -5,6 +5,7 @@ import {
   PetModel,
   UserSettingsModel,
 } from '../models/mongoose';
+import { ScheduledNotificationModel } from '../models/mongoose/scheduledNotifications';
 import { EventQueryParams } from '../types/api';
 import {
   getUTCDateRangeForLocalDate,
@@ -155,6 +156,9 @@ export class EventService {
 
   /**
    * Update event, ensuring it belongs to the user
+   *
+   * When startTime or reminder settings change, clears existing notification
+   * records so that new reminders can be scheduled by the scheduler.
    */
   async updateEvent(
     userId: string,
@@ -163,6 +167,20 @@ export class EventService {
   ): Promise<HydratedDocument<IEventDocument> | null> {
     // Don't allow updating userId
     const { ...safeUpdates } = updates;
+
+    // Check if reminder-related fields are being updated
+    const reminderFieldsChanged =
+      'startTime' in updates ||
+      'reminder' in updates ||
+      'reminderPreset' in updates;
+
+    // If reminder-related fields changed, clear notification records
+    // This allows new reminders to be scheduled with updated times
+    if (reminderFieldsChanged) {
+      await ScheduledNotificationModel.deleteMany({
+        eventId: new Types.ObjectId(id),
+      });
+    }
 
     const updatedEvent = await EventModel.findOneAndUpdate(
       { _id: id, userId },
@@ -175,12 +193,21 @@ export class EventService {
 
   /**
    * Delete event, ensuring it belongs to the user
+   * Also cleans up any scheduled notification records for this event.
    */
   async deleteEvent(userId: string, id: string): Promise<boolean> {
     const deletedEvent = await EventModel.findOneAndDelete({
       _id: id,
       userId,
     }).exec();
+
+    if (deletedEvent) {
+      // Clean up notification records for the deleted event
+      await ScheduledNotificationModel.deleteMany({
+        eventId: new Types.ObjectId(id),
+      });
+    }
+
     return !!deletedEvent;
   }
 

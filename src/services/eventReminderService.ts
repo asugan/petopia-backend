@@ -40,9 +40,23 @@ export interface EventReminderResult {
 export class EventReminderService {
   /**
    * Schedule reminders for an event
+   *
+   * This function checks if a notification has already been sent for each reminder
+   * to prevent duplicate notifications when the scheduler runs repeatedly.
    */
-  async scheduleReminders(config: EventReminderConfig): Promise<EventReminderResult> {
-    const { eventId, userId, eventType, eventTitle, startTime, petName, reminderMinutes, timezone } = config;
+  async scheduleReminders(
+    config: EventReminderConfig
+  ): Promise<EventReminderResult> {
+    const {
+      eventId,
+      userId,
+      eventType,
+      eventTitle,
+      startTime,
+      petName,
+      reminderMinutes,
+      timezone,
+    } = config;
 
     // Get user's active devices
     const devices = await pushNotificationService.getUserActiveDevices(userId);
@@ -57,7 +71,10 @@ export class EventReminderService {
     if (userLanguage === undefined) {
       const userSettings = await UserSettingsModel.findOne({
         userId: new Types.ObjectId(userId),
-      }).select('language').lean().exec();
+      })
+        .select('language')
+        .lean()
+        .exec();
       userLanguage = userSettings?.language ?? 'en';
       userLanguageCache.set(userId, userLanguage);
     }
@@ -66,18 +83,39 @@ export class EventReminderService {
     const messages = getEventReminderMessages(userLanguage);
 
     let scheduledCount = 0;
+    const now = new Date();
 
     for (const minutes of reminderMinutes) {
       const triggerTime = new Date(startTime.getTime() - minutes * 60 * 1000);
 
       // Don't schedule if trigger time is in the past
-      if (triggerTime <= new Date()) {
+      if (triggerTime <= now) {
+        continue;
+      }
+
+      // Check if this specific reminder has already been sent
+      // This prevents duplicate notifications when scheduler runs repeatedly
+      const notificationId = `reminder-${eventId}-${minutes}`;
+      const existingNotification = await ScheduledNotificationModel.findOne({
+        eventId: new Types.ObjectId(eventId),
+        notificationId,
+        status: 'sent',
+      })
+        .lean()
+        .exec();
+
+      if (existingNotification) {
+        // Already sent this reminder, skip
         continue;
       }
 
       // Format notification content with i18n
       const emoji = this.getEventTypeEmoji(eventType);
-      const formattedDate = formatInTimeZone(startTime, timezone, 'MMM d, HH:mm');
+      const formattedDate = formatInTimeZone(
+        startTime,
+        timezone,
+        'MMM d, HH:mm'
+      );
 
       const notificationTitle = messages.getTitle(emoji, petName, eventTitle);
       const timeOffset = messages.getTimeOffset(minutes);
@@ -106,7 +144,7 @@ export class EventReminderService {
           scheduledFor: triggerTime,
           sentAt: new Date(),
           status: 'sent',
-          notificationId: `reminder-${eventId}-${minutes}`,
+          notificationId,
         });
 
         scheduledCount += result.sent;
@@ -114,7 +152,9 @@ export class EventReminderService {
 
       // Handle failed tokens
       if (result.tokensToRemove.length > 0) {
-        logger.warn(`Removing ${result.tokensToRemove.length} invalid tokens for user ${userId}`);
+        logger.warn(
+          `Removing ${result.tokensToRemove.length} invalid tokens for user ${userId}`
+        );
       }
     }
 
@@ -122,7 +162,9 @@ export class EventReminderService {
     if (scheduledCount > 0) {
       await EventModel.findByIdAndUpdate(eventId, {
         $set: {
-          'scheduledNotificationIds': reminderMinutes.map(m => `reminder-${eventId}-${m}`),
+          scheduledNotificationIds: reminderMinutes.map(
+            m => `reminder-${eventId}-${m}`
+          ),
         },
       });
     }
@@ -132,20 +174,28 @@ export class EventReminderService {
   }
 
   /**
-   * Cancel reminders for an event
+   * Cancel/reset reminders for an event
+   *
+   * This deletes all notification records for the event, allowing new reminders
+   * to be scheduled when the event is updated (e.g., time changed).
+   *
+   * Note: Since notifications are sent immediately (not scheduled for future),
+   * we delete the records rather than just marking them cancelled. This ensures
+   * that if an event's time is updated, new reminders can be sent.
    */
   async cancelReminders(eventId: string): Promise<boolean> {
     try {
-      await ScheduledNotificationModel.updateMany(
-        { eventId: new Types.ObjectId(eventId), status: 'pending' },
-        { $set: { status: 'cancelled' } }
-      );
+      // Delete all notification records for this event
+      // This allows new reminders to be scheduled if event is updated
+      await ScheduledNotificationModel.deleteMany({
+        eventId: new Types.ObjectId(eventId),
+      });
 
       await EventModel.findByIdAndUpdate(eventId, {
         $set: { scheduledNotificationIds: [] },
       });
 
-      logger.info(`Cancelled reminders for event ${eventId}`);
+      logger.info(`Cancelled/reset reminders for event ${eventId}`);
       return true;
     } catch (error) {
       logger.error(`Error cancelling reminders for event ${eventId}:`, error);
@@ -157,7 +207,10 @@ export class EventReminderService {
    * Schedule reminders for all upcoming events with reminders enabled
    * Uses cursor-based pagination to handle large datasets efficiently
    */
-  async scheduleAllUpcomingReminders(): Promise<{ eventsProcessed: number; remindersScheduled: number }> {
+  async scheduleAllUpcomingReminders(): Promise<{
+    eventsProcessed: number;
+    remindersScheduled: number;
+  }> {
     const now = new Date();
     const sevenDaysLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
@@ -181,7 +234,7 @@ export class EventReminderService {
 
     while (hasMore) {
       // Build cursor-based query
-      const query: Record<string, unknown> = lastId 
+      const query: Record<string, unknown> = lastId
         ? { ...baseQuery, _id: { $gt: lastId } }
         : { ...baseQuery };
 
@@ -202,23 +255,32 @@ export class EventReminderService {
       for (const event of events) {
         try {
           const userIdStr = event.userId.toString();
-          
+
           // Get user's timezone from cache or fetch from settings
           let timezone = userTimezoneCache.get(userIdStr);
           if (timezone === undefined) {
             const userSettings = await UserSettingsModel.findOne({
               userId: event.userId,
-            }).select('timezone').lean().exec();
+            })
+              .select('timezone')
+              .lean()
+              .exec();
             timezone = userSettings?.timezone ?? DEFAULT_TIMEZONE;
             userTimezoneCache.set(userIdStr, timezone);
           }
 
           // Get reminder minutes based on preset
-          const reminderMinutes = this.getReminderMinutesForPreset(event.reminderPreset ?? 'standard');
+          const reminderMinutes = this.getReminderMinutesForPreset(
+            event.reminderPreset ?? 'standard'
+          );
 
           // Get pet name if available
           let petName: string | undefined;
-          if (event.petId && typeof event.petId === 'object' && 'name' in event.petId) {
+          if (
+            event.petId &&
+            typeof event.petId === 'object' &&
+            'name' in event.petId
+          ) {
             petName = (event.petId as { name: string }).name;
           }
 
@@ -238,9 +300,11 @@ export class EventReminderService {
             remindersScheduled += result.scheduledCount;
           }
           eventsProcessed++;
-
         } catch (error) {
-          logger.error(`Error scheduling reminders for event ${event._id.toString()}:`, error);
+          logger.error(
+            `Error scheduling reminders for event ${event._id.toString()}:`,
+            error
+          );
         }
       }
 
@@ -255,10 +319,14 @@ export class EventReminderService {
         hasMore = false;
       }
 
-      logger.info(`Processed batch of ${events.length} events (total: ${eventsProcessed})`);
+      logger.info(
+        `Processed batch of ${events.length} events (total: ${eventsProcessed})`
+      );
     }
 
-    logger.info(`Processed ${eventsProcessed} events, scheduled ${remindersScheduled} reminders`);
+    logger.info(
+      `Processed ${eventsProcessed} events, scheduled ${remindersScheduled} reminders`
+    );
     return { eventsProcessed, remindersScheduled };
   }
 
