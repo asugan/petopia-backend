@@ -38,7 +38,7 @@ vi.mock('@/utils/logger', () => ({
 vi.mock('@/config/notificationMessages', () => ({
   getEventReminderMessages: vi.fn(() => ({
     getTitle: (emoji: string, petName: string | undefined, title: string) =>
-      `${emoji} ${petName ? `${petName  }: ` : ''}${title}`,
+      `${emoji} ${petName ? `${petName}: ` : ''}${title}`,
     getTimeOffset: (minutes: number) => `${minutes} min before`,
   })),
 }));
@@ -81,6 +81,15 @@ describe('EventReminderService', () => {
     vi.mocked(EventModel.findByIdAndUpdate).mockReturnValue({
       exec: vi.fn().mockResolvedValue({}),
     } as any);
+
+    // Mock ScheduledNotificationModel.findOne - default no existing
+    vi.mocked(ScheduledNotificationModel.findOne).mockReturnValue({
+      lean: vi.fn().mockReturnThis(),
+      exec: vi.fn().mockResolvedValue(null),
+    } as any);
+
+    // Mock ScheduledNotificationModel.create
+    vi.mocked(ScheduledNotificationModel.create).mockResolvedValue({} as any);
   };
 
   beforeEach(() => {
@@ -93,23 +102,12 @@ describe('EventReminderService', () => {
     vi.restoreAllMocks();
   });
 
-  describe('scheduleReminders - Duplicate Prevention', () => {
-    it('should skip sending notification if already sent for same event and minute', async () => {
-      // Arrange: Event starting in 2 hours
+  describe('scheduleReminders - Timing Logic', () => {
+    it('should NOT send notification if trigger time has not arrived yet', async () => {
+      // Event in 2 hours, 60-minute reminder = trigger in 1 hour (future)
       const startTime = new Date(Date.now() + 2 * 60 * 60 * 1000);
-      const reminderMinutes = [60]; // 1 hour before
+      const reminderMinutes = [60]; // triggerTime = 1 hour from now
 
-      // Mock: Notification already sent for this reminder
-      vi.mocked(ScheduledNotificationModel.findOne).mockReturnValue({
-        lean: vi.fn().mockReturnThis(),
-        exec: vi.fn().mockResolvedValue({
-          _id: new Types.ObjectId(),
-          notificationId: `reminder-${mockEventId}-60`,
-          status: 'sent',
-        }),
-      } as any);
-
-      // Act
       const result = await service.scheduleReminders({
         eventId: mockEventId,
         userId: mockUserId,
@@ -121,27 +119,17 @@ describe('EventReminderService', () => {
         timezone: 'UTC',
       });
 
-      // Assert
+      // Trigger time hasn't arrived, should not send
       expect(result.success).toBe(true);
       expect(result.scheduledCount).toBe(0);
       expect(pushNotificationService.sendToUser).not.toHaveBeenCalled();
-      expect(ScheduledNotificationModel.create).not.toHaveBeenCalled();
     });
 
-    it('should send notification if not already sent', async () => {
-      // Arrange: Event starting in 2 hours
-      const startTime = new Date(Date.now() + 2 * 60 * 60 * 1000);
-      const reminderMinutes = [60]; // 1 hour before
+    it('should send notification when trigger time has just arrived (within grace window)', async () => {
+      // Event in 60 minutes, 60-minute reminder = trigger NOW
+      const startTime = new Date(Date.now() + 60 * 60 * 1000);
+      const reminderMinutes = [60]; // triggerTime = now
 
-      // Mock: No existing notification
-      vi.mocked(ScheduledNotificationModel.findOne).mockReturnValue({
-        lean: vi.fn().mockReturnThis(),
-        exec: vi.fn().mockResolvedValue(null),
-      } as any);
-
-      vi.mocked(ScheduledNotificationModel.create).mockResolvedValue({} as any);
-
-      // Act
       const result = await service.scheduleReminders({
         eventId: mockEventId,
         userId: mockUserId,
@@ -153,75 +141,64 @@ describe('EventReminderService', () => {
         timezone: 'UTC',
       });
 
-      // Assert
+      // Trigger time just arrived, should send
       expect(result.success).toBe(true);
       expect(result.scheduledCount).toBe(1);
       expect(pushNotificationService.sendToUser).toHaveBeenCalledTimes(1);
-      expect(ScheduledNotificationModel.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          eventId: expect.any(Types.ObjectId),
-          userId: expect.any(Types.ObjectId),
-          notificationId: `reminder-${mockEventId}-60`,
-          status: 'sent',
-        })
-      );
     });
 
-    it('should handle multiple reminder times and skip already sent ones', async () => {
-      // Arrange: Event starting in 2 days
-      const startTime = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
-      const reminderMinutes = [1440, 120, 60, 15]; // 1 day, 2h, 1h, 15min
+    it('should send notification if trigger time passed but within grace window (10 min ago)', async () => {
+      // Event in 50 minutes, 60-minute reminder = trigger was 10 min ago
+      const startTime = new Date(Date.now() + 50 * 60 * 1000);
+      const reminderMinutes = [60]; // triggerTime = 10 min ago (within 15 min grace)
 
-      // Mock: 1440 (1 day) already sent, others not
-      vi.mocked(ScheduledNotificationModel.findOne).mockImplementation(
-        (query: any) => {
-          const notificationId = query.notificationId;
-          const alreadySent = notificationId === `reminder-${mockEventId}-1440`;
-
-          return {
-            lean: vi.fn().mockReturnThis(),
-            exec: vi
-              .fn()
-              .mockResolvedValue(
-                alreadySent ? { notificationId, status: 'sent' } : null
-              ),
-          } as any;
-        }
-      );
-
-      vi.mocked(ScheduledNotificationModel.create).mockResolvedValue({} as any);
-
-      // Act
       const result = await service.scheduleReminders({
         eventId: mockEventId,
         userId: mockUserId,
-        title: 'Grooming',
-        eventType: 'grooming',
-        eventTitle: 'Grooming',
+        title: 'Vet Visit',
+        eventType: 'vet_visit',
+        eventTitle: 'Vet Visit',
         startTime,
         reminderMinutes,
         timezone: 'UTC',
       });
 
-      // Assert: Should send 3 notifications (skip the 1440 one)
+      // Within grace window, should send
       expect(result.success).toBe(true);
-      expect(result.scheduledCount).toBe(3);
-      expect(pushNotificationService.sendToUser).toHaveBeenCalledTimes(3);
+      expect(result.scheduledCount).toBe(1);
+      expect(pushNotificationService.sendToUser).toHaveBeenCalledTimes(1);
     });
 
-    it('should skip reminders with trigger time in the past', async () => {
-      // Arrange: Event starting in 10 minutes
-      const startTime = new Date(Date.now() + 10 * 60 * 1000);
-      const reminderMinutes = [1440, 60, 15, 5]; // Only 5min reminder is valid
+    it('should NOT send notification if trigger time passed and outside grace window (35 min ago)', async () => {
+      // Event in 25 minutes, 60-minute reminder = trigger was 35 min ago
+      const startTime = new Date(Date.now() + 25 * 60 * 1000);
+      const reminderMinutes = [60]; // triggerTime = 35 min ago (outside 30 min grace)
 
-      vi.mocked(ScheduledNotificationModel.findOne).mockReturnValue({
-        lean: vi.fn().mockReturnThis(),
-        exec: vi.fn().mockResolvedValue(null),
-      } as any);
+      const result = await service.scheduleReminders({
+        eventId: mockEventId,
+        userId: mockUserId,
+        title: 'Vet Visit',
+        eventType: 'vet_visit',
+        eventTitle: 'Vet Visit',
+        startTime,
+        reminderMinutes,
+        timezone: 'UTC',
+      });
 
-      vi.mocked(ScheduledNotificationModel.create).mockResolvedValue({} as any);
+      // Outside grace window, should NOT send
+      expect(result.success).toBe(true);
+      expect(result.scheduledCount).toBe(0);
+      expect(pushNotificationService.sendToUser).not.toHaveBeenCalled();
+    });
 
-      // Act
+    it('should only send reminders whose trigger time has arrived', async () => {
+      // Event in 150 minutes from now
+      // 120 min reminder = trigger in 30 min (future) - skip
+      // 60 min reminder = trigger in 90 min (future) - skip
+      // 15 min reminder = trigger in 135 min (future) - skip
+      const startTime = new Date(Date.now() + 150 * 60 * 1000);
+      const reminderMinutes = [120, 60, 15];
+
       const result = await service.scheduleReminders({
         eventId: mockEventId,
         userId: mockUserId,
@@ -233,21 +210,101 @@ describe('EventReminderService', () => {
         timezone: 'UTC',
       });
 
-      // Assert: Only the 5-minute reminder should be sent
+      // None of the reminders have arrived yet (all in future)
+      expect(result.success).toBe(true);
+      expect(result.scheduledCount).toBe(0);
+    });
+
+    it('should send multiple reminders if they are all within grace window', async () => {
+      // Event in 60 minutes
+      // 60 min reminder = trigger now (valid)
+      // 65 min reminder = trigger 5 min ago (valid, within grace)
+      const startTime = new Date(Date.now() + 60 * 60 * 1000);
+      const reminderMinutes = [60, 65]; // Both should trigger now or recently
+
+      const result = await service.scheduleReminders({
+        eventId: mockEventId,
+        userId: mockUserId,
+        title: 'Feeding',
+        eventType: 'feeding',
+        eventTitle: 'Feeding',
+        startTime,
+        reminderMinutes,
+        timezone: 'UTC',
+      });
+
+      // Both are valid
+      expect(result.success).toBe(true);
+      expect(result.scheduledCount).toBe(2);
+      expect(pushNotificationService.sendToUser).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('scheduleReminders - Duplicate Prevention', () => {
+    it('should skip sending notification if already sent', async () => {
+      // Event in 60 minutes, trigger time is now
+      const startTime = new Date(Date.now() + 60 * 60 * 1000);
+      const reminderMinutes = [60];
+
+      // Mock: Notification already sent
+      vi.mocked(ScheduledNotificationModel.findOne).mockReturnValue({
+        lean: vi.fn().mockReturnThis(),
+        exec: vi.fn().mockResolvedValue({
+          notificationId: `reminder-${mockEventId}-60`,
+          status: 'sent',
+        }),
+      } as any);
+
+      const result = await service.scheduleReminders({
+        eventId: mockEventId,
+        userId: mockUserId,
+        title: 'Vet Visit',
+        eventType: 'vet_visit',
+        eventTitle: 'Vet Visit',
+        startTime,
+        reminderMinutes,
+        timezone: 'UTC',
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.scheduledCount).toBe(0);
+      expect(pushNotificationService.sendToUser).not.toHaveBeenCalled();
+    });
+
+    it('should send notification if not already sent', async () => {
+      // Event in 60 minutes, trigger time is now
+      const startTime = new Date(Date.now() + 60 * 60 * 1000);
+      const reminderMinutes = [60];
+
+      const result = await service.scheduleReminders({
+        eventId: mockEventId,
+        userId: mockUserId,
+        title: 'Vet Visit',
+        eventType: 'vet_visit',
+        eventTitle: 'Vet Visit',
+        startTime,
+        reminderMinutes,
+        timezone: 'UTC',
+      });
+
       expect(result.success).toBe(true);
       expect(result.scheduledCount).toBe(1);
       expect(pushNotificationService.sendToUser).toHaveBeenCalledTimes(1);
-    });
-
-    it('should return 0 scheduled when no active devices', async () => {
-      // Arrange
-      vi.mocked(pushNotificationService.getUserActiveDevices).mockResolvedValue(
-        []
+      expect(ScheduledNotificationModel.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          notificationId: `reminder-${mockEventId}-60`,
+          status: 'sent',
+        })
       );
+    });
+  });
 
-      const startTime = new Date(Date.now() + 2 * 60 * 60 * 1000);
+  describe('scheduleReminders - Edge Cases', () => {
+    it('should return 0 scheduled when no active devices', async () => {
+      vi.mocked(pushNotificationService.getUserActiveDevices).mockResolvedValue([]);
 
-      // Act
+      const startTime = new Date(Date.now() + 60 * 60 * 1000);
+
       const result = await service.scheduleReminders({
         eventId: mockEventId,
         userId: mockUserId,
@@ -259,24 +316,41 @@ describe('EventReminderService', () => {
         timezone: 'UTC',
       });
 
-      // Assert
       expect(result.success).toBe(true);
       expect(result.scheduledCount).toBe(0);
       expect(pushNotificationService.sendToUser).not.toHaveBeenCalled();
+    });
+
+    it('should handle event starting exactly at grace window boundary', async () => {
+      // Event in 45 minutes, 60-minute reminder = trigger was 15 min ago (exactly at boundary)
+      const startTime = new Date(Date.now() + 45 * 60 * 1000);
+      const reminderMinutes = [60]; // triggerTime = 15 min ago
+
+      const result = await service.scheduleReminders({
+        eventId: mockEventId,
+        userId: mockUserId,
+        title: 'Walk',
+        eventType: 'walk',
+        eventTitle: 'Walk',
+        startTime,
+        reminderMinutes,
+        timezone: 'UTC',
+      });
+
+      // Exactly at 15 min boundary, should still send (<=)
+      expect(result.success).toBe(true);
+      expect(result.scheduledCount).toBe(1);
     });
   });
 
   describe('cancelReminders', () => {
     it('should delete all notification records for an event', async () => {
-      // Arrange
       vi.mocked(ScheduledNotificationModel.deleteMany).mockResolvedValue({
         deletedCount: 4,
       } as any);
 
-      // Act
       const result = await service.cancelReminders(mockEventId);
 
-      // Assert
       expect(result).toBe(true);
       expect(ScheduledNotificationModel.deleteMany).toHaveBeenCalledWith({
         eventId: expect.any(Types.ObjectId),
@@ -287,101 +361,48 @@ describe('EventReminderService', () => {
     });
 
     it('should return false on error', async () => {
-      // Arrange
       vi.mocked(ScheduledNotificationModel.deleteMany).mockRejectedValue(
         new Error('DB error')
       );
 
-      // Act
       const result = await service.cancelReminders(mockEventId);
 
-      // Assert
       expect(result).toBe(false);
     });
   });
 
-  describe('getReminderMinutesForPreset (via scheduleReminders)', () => {
-    it('should use standard preset by default', async () => {
-      // The private method is tested indirectly
-      // Standard preset: [1440, 120, 60, 15]
-      const startTime = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000); // 3 days from now
+  describe('Scheduler simulation - Real world scenario', () => {
+    it('should correctly handle scheduler runs for an event with multiple reminders', async () => {
+      // Simulate: Event at 19:00, current time is 17:00
+      // Reminders: 2h (17:00), 1h (18:00), 15min (18:45)
+      
+      // First scheduler run at 17:00 - should send 2h reminder
+      const eventTime = new Date();
+      eventTime.setHours(19, 0, 0, 0);
+      
+      // Simulate "now" is exactly 2 hours before event (17:00)
+      const twoHoursBefore = new Date(eventTime.getTime() - 2 * 60 * 60 * 1000);
+      vi.setSystemTime(twoHoursBefore);
 
-      vi.mocked(ScheduledNotificationModel.findOne).mockReturnValue({
-        lean: vi.fn().mockReturnThis(),
-        exec: vi.fn().mockResolvedValue(null),
-      } as any);
-      vi.mocked(ScheduledNotificationModel.create).mockResolvedValue({} as any);
+      const reminderMinutes = [120, 60, 15]; // 2h, 1h, 15min
 
-      const result = await service.scheduleReminders({
-        eventId: mockEventId,
-        userId: mockUserId,
-        title: 'Test',
-        eventType: 'other',
-        eventTitle: 'Test',
-        startTime,
-        reminderMinutes: [1440, 120, 60, 15], // Standard preset
-        timezone: 'UTC',
-      });
-
-      // All 4 reminders should be scheduled
-      expect(result.scheduledCount).toBe(4);
-    });
-  });
-
-  describe('Scheduler repeated runs simulation', () => {
-    it('should not send duplicate notifications on repeated scheduler runs', async () => {
-      const startTime = new Date(Date.now() + 2 * 60 * 60 * 1000);
-      const reminderMinutes = [60];
-
-      // First run: No existing notification
-      vi.mocked(ScheduledNotificationModel.findOne).mockReturnValue({
-        lean: vi.fn().mockReturnThis(),
-        exec: vi.fn().mockResolvedValue(null),
-      } as any);
-      vi.mocked(ScheduledNotificationModel.create).mockResolvedValue({} as any);
-
-      // First scheduler run
       const result1 = await service.scheduleReminders({
         eventId: mockEventId,
         userId: mockUserId,
-        title: 'Test Event',
+        title: 'Vet Visit',
         eventType: 'vet_visit',
-        eventTitle: 'Test Event',
-        startTime,
+        eventTitle: 'Vet Visit',
+        startTime: eventTime,
         reminderMinutes,
         timezone: 'UTC',
       });
 
+      // Only 2h reminder should be sent (its trigger time is now)
       expect(result1.scheduledCount).toBe(1);
       expect(pushNotificationService.sendToUser).toHaveBeenCalledTimes(1);
 
-      // Clear call counts but simulate the notification was stored
-      vi.mocked(pushNotificationService.sendToUser).mockClear();
-
-      // Second run: Notification now exists in DB
-      vi.mocked(ScheduledNotificationModel.findOne).mockReturnValue({
-        lean: vi.fn().mockReturnThis(),
-        exec: vi.fn().mockResolvedValue({
-          notificationId: `reminder-${mockEventId}-60`,
-          status: 'sent',
-        }),
-      } as any);
-
-      // Second scheduler run (simulating 15 minutes later)
-      const result2 = await service.scheduleReminders({
-        eventId: mockEventId,
-        userId: mockUserId,
-        title: 'Test Event',
-        eventType: 'vet_visit',
-        eventTitle: 'Test Event',
-        startTime,
-        reminderMinutes,
-        timezone: 'UTC',
-      });
-
-      // Should not send again
-      expect(result2.scheduledCount).toBe(0);
-      expect(pushNotificationService.sendToUser).not.toHaveBeenCalled();
+      // Reset for next test
+      vi.useRealTimers();
     });
   });
 });

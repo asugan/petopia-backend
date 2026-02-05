@@ -4,6 +4,7 @@ import { eventReminderService } from '../services/eventReminderService.js';
 import { markMissedEvents } from './eventStatusUpdater.js';
 import { checkBudgetAlerts } from './budgetAlertChecker.js';
 import { checkFeedingReminders } from './feedingReminderChecker.js';
+import { cleanupOldNotifications } from './notificationCleanup.js';
 import { logger } from '../utils/logger.js';
 
 let scheduledJobs: ScheduledTask[] = [];
@@ -26,80 +27,132 @@ export function initializeScheduler(): void {
   registerGracefulShutdown();
 
   // Recurrence Generator - Runs daily at 2:00 AM
-  const recurrenceJob = cron.schedule('0 2 * * *', async () => {
-    logger.info('[Scheduler] Running recurrence generator job...');
-    try {
-      const result = await runRecurrenceGenerator();
-      logger.info(`[Scheduler] Recurrence generator completed: ${result.rulesProcessed} rules processed, ${result.eventsCreated} events created`);
-    } catch (error) {
-      logger.error('[Scheduler] Recurrence generator failed:', error);
+  const recurrenceJob = cron.schedule(
+    '0 2 * * *',
+    async () => {
+      logger.info('[Scheduler] Running recurrence generator job...');
+      try {
+        const result = await runRecurrenceGenerator();
+        logger.info(
+          `[Scheduler] Recurrence generator completed: ${result.rulesProcessed} rules processed, ${result.eventsCreated} events created`
+        );
+      } catch (error) {
+        logger.error('[Scheduler] Recurrence generator failed:', error);
+      }
+    },
+    {
+      timezone: process.env.SCHEDULER_TIMEZONE ?? 'UTC',
     }
-  }, {
-    timezone: process.env.SCHEDULER_TIMEZONE ?? 'UTC',
-  });
+  );
   scheduledJobs.push(recurrenceJob);
 
   // Reminder Scheduler - Runs every 15 minutes
   // Schedules push notifications for upcoming events
-  const reminderJob = cron.schedule('*/15 * * * *', async () => {
-    logger.info('[Scheduler] Running reminder scheduler job...');
-    try {
-      const result = await eventReminderService.scheduleAllUpcomingReminders();
-      logger.info(`[Scheduler] Reminder scheduler completed: ${result.eventsProcessed} events, ${result.remindersScheduled} reminders`);
-    } catch (error) {
-      logger.error('[Scheduler] Reminder scheduler failed:', error);
+  const reminderJob = cron.schedule(
+    '*/15 * * * *',
+    async () => {
+      logger.info('[Scheduler] Running reminder scheduler job...');
+      try {
+        const result =
+          await eventReminderService.scheduleAllUpcomingReminders();
+        logger.info(
+          `[Scheduler] Reminder scheduler completed: ${result.eventsProcessed} events, ${result.remindersScheduled} reminders`
+        );
+      } catch (error) {
+        logger.error('[Scheduler] Reminder scheduler failed:', error);
+      }
+    },
+    {
+      timezone: process.env.SCHEDULER_TIMEZONE ?? 'UTC',
     }
-  }, {
-    timezone: process.env.SCHEDULER_TIMEZONE ?? 'UTC',
-  });
+  );
   scheduledJobs.push(reminderJob);
 
   // Missed Event Checker - Runs every 15 minutes
   // Marks events as missed if their start time has passed
-  const missedEventJob = cron.schedule('*/15 * * * *', async () => {
-    logger.info('[Scheduler] Running missed event checker job...');
-    try {
-      const count = await markMissedEvents();
-      if (count > 0) {
-        logger.info(`[Scheduler] Marked ${count} events as missed`);
+  const missedEventJob = cron.schedule(
+    '*/15 * * * *',
+    async () => {
+      logger.info('[Scheduler] Running missed event checker job...');
+      try {
+        const count = await markMissedEvents();
+        if (count > 0) {
+          logger.info(`[Scheduler] Marked ${count} events as missed`);
+        }
+      } catch (error) {
+        logger.error('[Scheduler] Missed event checker failed:', error);
       }
-    } catch (error) {
-      logger.error('[Scheduler] Missed event checker failed:', error);
+    },
+    {
+      timezone: process.env.SCHEDULER_TIMEZONE ?? 'UTC',
     }
-  }, {
-    timezone: process.env.SCHEDULER_TIMEZONE ?? 'UTC',
-  });
+  );
   scheduledJobs.push(missedEventJob);
 
   // Budget Alert Checker - Runs every hour
   // Checks budget thresholds and sends push notifications
-  const budgetAlertJob = cron.schedule('0 * * * *', async () => {
-    logger.info('[Scheduler] Running budget alert checker job...');
-    try {
-      const result = await checkBudgetAlerts();
-      logger.info(`[Scheduler] Budget alert checker completed: ${result.processed} processed, ${result.sent} sent, ${result.failed} failed`);
-    } catch (error) {
-      logger.error('[Scheduler] Budget alert checker failed:', error);
+  const budgetAlertJob = cron.schedule(
+    '0 * * * *',
+    async () => {
+      logger.info('[Scheduler] Running budget alert checker job...');
+      try {
+        const result = await checkBudgetAlerts();
+        logger.info(
+          `[Scheduler] Budget alert checker completed: ${result.processed} processed, ${result.sent} sent, ${result.failed} failed`
+        );
+      } catch (error) {
+        logger.error('[Scheduler] Budget alert checker failed:', error);
+      }
+    },
+    {
+      timezone: process.env.SCHEDULER_TIMEZONE ?? 'UTC',
     }
-  }, {
-    timezone: process.env.SCHEDULER_TIMEZONE ?? 'UTC',
-  });
+  );
   scheduledJobs.push(budgetAlertJob);
 
   // Feeding Reminder Checker - Runs every 15 minutes
   // Checks pending feeding reminders and sends push notifications
-  const feedingReminderJob = cron.schedule('*/15 * * * *', async () => {
-    logger.info('[Scheduler] Running feeding reminder checker job...');
-    try {
-      const result = await checkFeedingReminders();
-      logger.info(`[Scheduler] Feeding reminder checker completed: ${result.checked} checked, ${result.sent} sent, ${result.failed} failed, ${result.retried} retried`);
-    } catch (error) {
-      logger.error('[Scheduler] Feeding reminder checker failed:', error);
+  const feedingReminderJob = cron.schedule(
+    '*/15 * * * *',
+    async () => {
+      logger.info('[Scheduler] Running feeding reminder checker job...');
+      try {
+        const result = await checkFeedingReminders();
+        logger.info(
+          `[Scheduler] Feeding reminder checker completed: ${result.checked} checked, ${result.sent} sent, ${result.failed} failed, ${result.retried} retried`
+        );
+      } catch (error) {
+        logger.error('[Scheduler] Feeding reminder checker failed:', error);
+      }
+    },
+    {
+      timezone: process.env.SCHEDULER_TIMEZONE ?? 'UTC',
     }
-  }, {
-    timezone: process.env.SCHEDULER_TIMEZONE ?? 'UTC',
-  });
+  );
   scheduledJobs.push(feedingReminderJob);
+
+  // Notification Cleanup - Runs daily at 3:00 AM
+  // Deletes old sent notification records to prevent database bloat
+  const notificationCleanupJob = cron.schedule(
+    '0 3 * * *',
+    async () => {
+      logger.info('[Scheduler] Running notification cleanup job...');
+      try {
+        const result = await cleanupOldNotifications();
+        if (result.deleted > 0) {
+          logger.info(
+            `[Scheduler] Notification cleanup completed: ${result.deleted} records deleted`
+          );
+        }
+      } catch (error) {
+        logger.error('[Scheduler] Notification cleanup failed:', error);
+      }
+    },
+    {
+      timezone: process.env.SCHEDULER_TIMEZONE ?? 'UTC',
+    }
+  );
+  scheduledJobs.push(notificationCleanupJob);
 
   logger.info(`Scheduler initialized with ${scheduledJobs.length} jobs`);
 }
@@ -113,10 +166,10 @@ export function stopScheduler(): void {
     logger.warn('Scheduler is already shutting down...');
     return;
   }
-  
+
   isShuttingDown = true;
   logger.info('Stopping job scheduler...');
-  
+
   for (const job of scheduledJobs) {
     void job.stop();
   }
@@ -131,9 +184,9 @@ export function stopScheduler(): void {
 function registerGracefulShutdown(): void {
   const shutdownHandler = (signal: string) => {
     logger.info(`Received ${signal} signal. Initiating graceful shutdown...`);
-    
+
     stopScheduler();
-    
+
     // Give some time for cleanup, then exit
     setTimeout(() => {
       logger.info('Graceful shutdown complete. Exiting...');
@@ -143,28 +196,30 @@ function registerGracefulShutdown(): void {
 
   // Handle SIGTERM (sent by container orchestrators like Docker/Kubernetes)
   process.on('SIGTERM', () => shutdownHandler('SIGTERM'));
-  
+
   // Handle SIGINT (Ctrl+C in terminal)
   process.on('SIGINT', () => shutdownHandler('SIGINT'));
-  
+
   // Handle uncaught exceptions - stop scheduler before crash
-  process.on('uncaughtException', (error) => {
+  process.on('uncaughtException', error => {
     logger.error('Uncaught exception, stopping scheduler:', error);
     stopScheduler();
   });
 
   // Handle unhandled promise rejections
-  process.on('unhandledRejection', (reason) => {
+  process.on('unhandledRejection', reason => {
     logger.error('Unhandled promise rejection:', reason);
   });
-  
+
   logger.info('Graceful shutdown handlers registered');
 }
 
 /**
  * Run a specific job manually
  */
-export async function runJob(jobName: string): Promise<{ success: boolean; result?: unknown; error?: string }> {
+export async function runJob(
+  jobName: string
+): Promise<{ success: boolean; result?: unknown; error?: string }> {
   switch (jobName) {
     case 'recurrence-generator': {
       const result = await runRecurrenceGenerator();
@@ -184,6 +239,10 @@ export async function runJob(jobName: string): Promise<{ success: boolean; resul
     }
     case 'feeding-reminder-checker': {
       const result = await checkFeedingReminders();
+      return { success: true, result };
+    }
+    case 'notification-cleanup': {
+      const result = await cleanupOldNotifications();
       return { success: true, result };
     }
     default:
@@ -208,6 +267,7 @@ export function getSchedulerStatus(): {
       'missed-event-checker',
       'budget-alert-checker',
       'feeding-reminder-checker',
+      'notification-cleanup',
     ],
   };
 }

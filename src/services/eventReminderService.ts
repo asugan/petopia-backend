@@ -85,11 +85,25 @@ export class EventReminderService {
     let scheduledCount = 0;
     const now = new Date();
 
+    // Grace window: How long after triggerTime we still send the notification
+    // This handles scheduler delays and ensures notifications aren't missed
+    // Set to 30 min (2x scheduler period) to allow recovery if one scheduler run is missed
+    const GRACE_WINDOW_MS = 30 * 60 * 1000;
+
     for (const minutes of reminderMinutes) {
       const triggerTime = new Date(startTime.getTime() - minutes * 60 * 1000);
 
-      // Don't schedule if trigger time is in the past
-      if (triggerTime <= now) {
+      // Check if trigger time has arrived
+      const triggerTimePassed = now.getTime() >= triggerTime.getTime();
+
+      // Check if we're still within the grace window (not too late)
+      const timeSinceTrigger = now.getTime() - triggerTime.getTime();
+      const withinGraceWindow = timeSinceTrigger <= GRACE_WINDOW_MS;
+
+      // Only send if:
+      // 1. Trigger time has passed (it's time to send)
+      // 2. We're still within grace window (not too late)
+      if (!triggerTimePassed || !withinGraceWindow) {
         continue;
       }
 
@@ -137,17 +151,33 @@ export class EventReminderService {
 
       // Store notification record for tracking
       if (result.sent > 0) {
-        await ScheduledNotificationModel.create({
-          userId: new Types.ObjectId(userId),
-          eventId: new Types.ObjectId(eventId),
-          expoPushToken: devices[0], // Primary token for reference
-          scheduledFor: triggerTime,
-          sentAt: new Date(),
-          status: 'sent',
-          notificationId,
-        });
+        try {
+          await ScheduledNotificationModel.create({
+            userId: new Types.ObjectId(userId),
+            eventId: new Types.ObjectId(eventId),
+            expoPushToken: devices[0], // Primary token for reference
+            scheduledFor: triggerTime,
+            sentAt: new Date(),
+            status: 'sent',
+            notificationId,
+          });
 
-        scheduledCount += result.sent;
+          scheduledCount += result.sent;
+        } catch (error: unknown) {
+          // Handle duplicate key error (E11000) from unique index
+          // This happens if another scheduler instance already created this notification
+          if (
+            error instanceof Error &&
+            'code' in error &&
+            (error as { code: number }).code === 11000
+          ) {
+            logger.debug(
+              `Duplicate notification skipped (race condition prevented): ${notificationId}`
+            );
+            continue;
+          }
+          throw error;
+        }
       }
 
       // Handle failed tokens
