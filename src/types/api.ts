@@ -134,6 +134,8 @@ export interface CreateFeedingScheduleRequest {
   amount: string;
   days: string;
   isActive?: boolean;
+  remindersEnabled?: boolean;
+  reminderMinutesBefore?: number;
 }
 
 export interface UpdateFeedingScheduleRequest {
@@ -142,6 +144,8 @@ export interface UpdateFeedingScheduleRequest {
   amount?: string;
   days?: string;
   isActive?: boolean;
+  remindersEnabled?: boolean;
+  reminderMinutesBefore?: number;
 }
 
 // Database entity types (re-exported from schema)

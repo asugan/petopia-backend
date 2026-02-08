@@ -28,11 +28,6 @@ const createFeedingScheduleSchema = z.object({
 
 const updateFeedingScheduleSchema = createFeedingScheduleSchema.partial();
 
-const updateReminderSchema = z.object({
-  enabled: z.boolean(),
-  minutesBefore: z.number().min(1).max(1440).optional(),
-});
-
 // Routes
 router.get('/active', feedingScheduleController.getActiveSchedules);
 
@@ -43,89 +38,6 @@ router.get('/next', feedingScheduleController.getNextFeedingTime);
 router.get('/', feedingScheduleController.getFeedingSchedulesByPetId);
 
 router.get('/:id', validateObjectId(), feedingScheduleController.getFeedingScheduleById);
-
-// PUT /:id/reminder - Toggle reminder settings
-router.put(
-  '/:id/reminder',
-  validateObjectId(),
-  validateRequest(updateReminderSchema),
-  async (req: AuthenticatedRequest, res: Response) => {
-    try {
-      const userId = req.user?.id;
-      const id = toString(req.params.id);
-      const { enabled, minutesBefore } = req.body as { enabled: boolean; minutesBefore?: number };
-
-      if (!userId) {
-        res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'User not authenticated' } });
-        return;
-      }
-
-      if (!id) {
-        res.status(400).json({ success: false, error: { code: 'BAD_REQUEST', message: 'Schedule ID is required' } });
-        return;
-      }
-
-      // Get the schedule
-      const schedule = await FeedingScheduleModel.findOne({ _id: id, userId });
-
-      if (!schedule) {
-        res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Feeding schedule not found' } });
-        return;
-      }
-
-      // Update reminder settings
-      schedule.remindersEnabled = enabled;
-      if (minutesBefore !== undefined) {
-        schedule.reminderMinutesBefore = minutesBefore;
-      }
-
-      // If enabling reminders, calculate next notification time
-      if (enabled) {
-        const nextFeedingTime = feedingReminderService.calculateNextFeedingTime(schedule.time, schedule.days);
-        if (nextFeedingTime) {
-          const reminderMinutesBefore = schedule.reminderMinutesBefore ?? 15;
-          schedule.nextNotificationTime = new Date(nextFeedingTime.getTime() - reminderMinutesBefore * 60 * 1000);
-        }
-      } else {
-        schedule.nextNotificationTime = undefined;
-      }
-
-      await schedule.save();
-
-      // Cancel or schedule reminders
-      if (enabled) {
-        const { PetModel } = await import('../models/mongoose/index.js');
-        const pet = await PetModel.findById(schedule.petId);
-
-        await feedingReminderService.scheduleFeedingReminder({
-          scheduleId: schedule._id.toString(),
-          userId,
-          petId: schedule.petId.toString(),
-          petName: pet?.name ?? 'your pet',
-          time: schedule.time,
-          foodType: schedule.foodType,
-          amount: schedule.amount,
-          days: schedule.days,
-          reminderMinutesBefore: schedule.reminderMinutesBefore ?? 15,
-        });
-      } else {
-        await feedingReminderService.cancelFeedingReminders(toString(id));
-      }
-
-      res.json({
-        success: true,
-        data: {
-          remindersEnabled: schedule.remindersEnabled,
-          reminderMinutesBefore: schedule.reminderMinutesBefore,
-          nextNotificationTime: schedule.nextNotificationTime,
-        },
-      });
-    } catch (error) {
-      logger.error('Error updating reminder settings:', error);
-      res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: 'Failed to update reminder settings' } });
-    }
-  }
-);
 
 // POST /:id/reminder - Manually trigger a reminder
 router.post(

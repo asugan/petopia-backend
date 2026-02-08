@@ -15,6 +15,7 @@
     "db:migrate-timezone": "node scripts/migrate-timezone.cjs",
     "db:migrate-remove-event-description": "node scripts/migrate-remove-event-description.cjs",
     "db:migrate-remove-event-extra-fields": "node scripts/migrate-remove-event-extra-fields.cjs",
+    "db:migrate-sync-feeding-reminders": "node scripts/migrate-sync-feeding-reminders.cjs",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",

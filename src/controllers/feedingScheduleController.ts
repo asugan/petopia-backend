@@ -12,8 +12,11 @@ import {
 } from '../types/api';
 import { createError } from '../middleware/errorHandler';
 import { FeedingScheduleModel } from '../models/mongoose/feedingSchedule';
+import { PetModel } from '../models/mongoose/pet';
 import { SubscriptionService } from '../services/subscriptionService';
+import { feedingReminderService } from '../services/feedingReminderService';
 import { toString } from '../utils/express-utils';
+import { logger } from '../utils/logger';
 
 export class FeedingScheduleController {
   private feedingScheduleService: FeedingScheduleService;
@@ -135,10 +138,36 @@ export class FeedingScheduleController {
         }
       }
 
+      const schedulePayload: CreateFeedingScheduleRequest = {
+        ...scheduleData,
+        isActive,
+        remindersEnabled: isActive,
+      };
+
       const schedule = await this.feedingScheduleService.createFeedingSchedule(
         userId,
-        scheduleData
+        schedulePayload
       );
+
+      if (isActive) {
+        try {
+          const pet = await PetModel.findById(schedule.petId).select('name').lean();
+          await feedingReminderService.scheduleFeedingReminder({
+            scheduleId: schedule._id.toString(),
+            userId,
+            petId: schedule.petId.toString(),
+            petName: pet?.name ?? 'your pet',
+            time: schedule.time,
+            foodType: schedule.foodType,
+            amount: schedule.amount,
+            days: schedule.days,
+            reminderMinutesBefore: schedule.reminderMinutesBefore ?? 15,
+          });
+        } catch (error) {
+          logger.error('Failed to schedule feeding reminder after schedule creation', error);
+        }
+      }
+
       successResponse(res, schedule, 201);
     } catch (error) {
       next(error);
@@ -160,27 +189,41 @@ export class FeedingScheduleController {
         throw createError('Feeding schedule ID is required', 400, 'MISSING_ID');
       }
 
-      if (updates.isActive === true) {
-        const existingSchedule = await this.feedingScheduleService.getFeedingScheduleById(
-          userId,
-          id
+      const existingSchedule = await this.feedingScheduleService.getFeedingScheduleById(
+        userId,
+        id
+      );
+
+      if (!existingSchedule) {
+        throw createError(
+          'Feeding schedule not found',
+          404,
+          'FEEDING_SCHEDULE_NOT_FOUND'
         );
-        const isAlreadyActive = existingSchedule?.isActive === true;
-        if (!isAlreadyActive) {
-          const subscriptionStatus = await this.subscriptionService.getSubscriptionStatus(userId);
-          if (!subscriptionStatus.hasActiveSubscription) {
-            const activeScheduleCount = await FeedingScheduleModel.countDocuments({ userId, isActive: true });
-            if (activeScheduleCount >= 1) {
-              throw createError('Feeding schedule limit reached', 402, 'PRO_REQUIRED');
-            }
+      }
+
+      const nextIsActive = updates.isActive ?? existingSchedule.isActive;
+
+      if (nextIsActive && !existingSchedule.isActive) {
+        const subscriptionStatus = await this.subscriptionService.getSubscriptionStatus(userId);
+        if (!subscriptionStatus.hasActiveSubscription) {
+          const activeScheduleCount = await FeedingScheduleModel.countDocuments({ userId, isActive: true });
+          if (activeScheduleCount >= 1) {
+            throw createError('Feeding schedule limit reached', 402, 'PRO_REQUIRED');
           }
         }
       }
 
+      const syncedUpdates: UpdateFeedingScheduleRequest = {
+        ...updates,
+        isActive: nextIsActive,
+        remindersEnabled: nextIsActive,
+      };
+
       const schedule = await this.feedingScheduleService.updateFeedingSchedule(
         userId,
         id,
-        updates
+        syncedUpdates
       );
 
       if (!schedule) {
@@ -189,6 +232,28 @@ export class FeedingScheduleController {
           404,
           'FEEDING_SCHEDULE_NOT_FOUND'
         );
+      }
+
+      try {
+        if (schedule.isActive) {
+          await feedingReminderService.cancelFeedingReminders(schedule._id.toString());
+          const pet = await PetModel.findById(schedule.petId).select('name').lean();
+          await feedingReminderService.scheduleFeedingReminder({
+            scheduleId: schedule._id.toString(),
+            userId,
+            petId: schedule.petId.toString(),
+            petName: pet?.name ?? 'your pet',
+            time: schedule.time,
+            foodType: schedule.foodType,
+            amount: schedule.amount,
+            days: schedule.days,
+            reminderMinutesBefore: schedule.reminderMinutesBefore ?? 15,
+          });
+        } else {
+          await feedingReminderService.cancelFeedingReminders(schedule._id.toString());
+        }
+      } catch (error) {
+        logger.error('Failed to sync feeding reminders after schedule update', error);
       }
 
       successResponse(res, schedule);
