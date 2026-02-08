@@ -25,6 +25,15 @@ interface UpdateUserSettingsInput {
   };
 }
 
+function isValidTimezone(timezone: string): boolean {
+  try {
+    Intl.DateTimeFormat(undefined, { timeZone: timezone });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export class UserSettingsService {
   private exchangeRateService: ExchangeRateService;
 
@@ -56,6 +65,13 @@ export class UserSettingsService {
 
     if (updates.theme && !['light', 'dark'].includes(updates.theme)) {
       throw new Error('Invalid theme. Must be light or dark');
+    }
+
+    if (
+      updates.timezone !== undefined &&
+      (!updates.timezone.trim() || !isValidTimezone(updates.timezone))
+    ) {
+      throw new Error('Invalid timezone. Must be a valid IANA timezone identifier');
     }
 
     if (updates.notificationsEnabled !== undefined && typeof updates.notificationsEnabled !== 'boolean') {
