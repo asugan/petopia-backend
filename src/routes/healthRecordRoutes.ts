@@ -20,13 +20,7 @@ const createHealthRecordSchema = z.object({
     'other',
   ]),
   title: z.string().min(1, 'Title is required'),
-  description: z.string().optional(),
   date: z.string().datetime('Invalid date format'),
-  veterinarian: z.string().optional(),
-  clinic: z.string().optional(),
-  cost: z.number().nonnegative().optional(),
-  currency: z.enum(['TRY', 'USD', 'EUR', 'GBP']).optional(),
-  notes: z.string().optional(),
   attachments: z.string().optional(),
   treatmentPlan: z.array(z.object({
     name: z.string().min(1, 'Treatment name is required'),
@@ -35,21 +29,11 @@ const createHealthRecordSchema = z.object({
     duration: z.string().optional(),
     notes: z.string().optional(),
   })).optional(),
-  nextVisitDate: z.string().datetime('Invalid next visit date format').optional(),
 });
 
 const updateHealthRecordSchema = createHealthRecordSchema
   .omit({ petId: true })
-  .partial()
-  .extend({
-    // Allow explicit clearing of next visit (unlink + delete linked Event)
-    nextVisitDate: z
-      .union([
-        z.string().datetime('Invalid next visit date format'),
-        z.null(),
-      ])
-      .optional(),
-  });
+  .partial();
 
 // GET / - If called as /api/health-records, use getAllHealthRecords (accepts petId as query param)
 // GET / - If called as /api/pets/:petId/health-records, use getHealthRecordsByPetId (gets petId from params)

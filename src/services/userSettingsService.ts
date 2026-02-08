@@ -1,8 +1,6 @@
-import { AnyBulkWriteOperation, HydratedDocument } from 'mongoose';
+import { HydratedDocument } from 'mongoose';
 import {
   ExpenseModel,
-  HealthRecordModel,
-  IHealthRecordDocument,
   IUserSettingsDocument,
   UserBudgetModel,
   UserSettingsModel,
@@ -116,10 +114,7 @@ export class UserSettingsService {
     try {
       const expenseCount = await this.recalculateExpenseBaseCurrency(userId, baseCurrency);
       logger.info(`Updated ${expenseCount} expenses for user ${userId} to base currency ${baseCurrency}`);
-      
-      const healthRecordCount = await this.recalculateHealthRecordBaseCurrency(userId, baseCurrency);
-      logger.info(`Updated ${healthRecordCount} health records for user ${userId} to base currency ${baseCurrency}`);
-      
+
       await this.syncUserBudgetCurrency(userId, previousBaseCurrency, baseCurrency);
     } catch (error) {
       logger.error(`Failed to recalculate currencies for user ${userId}:`, error);
@@ -263,77 +258,6 @@ export class UserSettingsService {
 
     await ExpenseModel.bulkWrite(updates);
     return expenses.length;
-  }
-
-  private async recalculateHealthRecordBaseCurrency(
-    userId: string,
-    baseCurrency: SupportedCurrency
-  ): Promise<number> {
-    const healthRecords = await HealthRecordModel.find({ userId })
-      .select({ _id: 1, cost: 1, currency: 1 })
-      .exec();
-
-    if (healthRecords.length === 0) {
-      return 0;
-    }
-
-    const currencies = new Set<string>();
-    healthRecords.forEach(record => {
-      currencies.add(record.currency ?? baseCurrency);
-    });
-
-    const rates = new Map<string, number>();
-    for (const currency of currencies) {
-      if (currency === baseCurrency) {
-        rates.set(currency, 1);
-        continue;
-      }
-      const rate = await this.exchangeRateService.getRate(currency, baseCurrency);
-      if (rate === null) {
-        throw new Error(`Exchange rate not available for ${currency} to ${baseCurrency}`);
-      }
-      rates.set(currency, rate);
-    }
-
-    const fxAsOf = new Date();
-    const updates: AnyBulkWriteOperation<IHealthRecordDocument>[] = healthRecords.map(record => {
-      const recordCurrency = record.currency ?? baseCurrency;
-      const rate = rates.get(recordCurrency);
-      if (rate === undefined) {
-        throw new Error(`Missing exchange rate for ${recordCurrency} to ${baseCurrency}`);
-      }
-      
-      // If cost is missing/null, unset conversion fields (matching update behavior)
-      if (record.cost == null) {
-        return {
-          updateOne: {
-            filter: { _id: record._id },
-            update: {
-              $set: { currency: recordCurrency, baseCurrency },
-              $unset: { amountBase: '', fxRate: '', fxAsOf: '' },
-            },
-          },
-        };
-      }
-      
-      return {
-        updateOne: {
-          filter: { _id: record._id },
-          update: {
-            $set: {
-              currency: recordCurrency,
-              baseCurrency,
-              amountBase: this.round(record.cost * rate),
-              fxRate: rate,
-              fxAsOf,
-            },
-          },
-        },
-      };
-    });
-
-    await HealthRecordModel.bulkWrite(updates);
-    return healthRecords.length;
   }
 
   private round(value: number, decimals = 2): number {

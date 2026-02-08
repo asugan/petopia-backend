@@ -148,23 +148,9 @@ export class HealthRecordController {
         );
       }
 
-      // Convert string dates to UTC Date objects
-      const nextVisitDate = recordData.nextVisitDate
-        ? parseUTCDate(recordData.nextVisitDate)
-        : undefined;
-
-      if (nextVisitDate && nextVisitDate <= new Date()) {
-        throw createError(
-          'Next visit date must be in the future',
-          400,
-          'INVALID_NEXT_VISIT_DATE'
-        );
-      }
-
       const convertedRecordData = {
         ...recordData,
         date: parseUTCDate(recordData.date),
-        nextVisitDate,
       };
 
       const record = await this.healthRecordService.createHealthRecord(userId, convertedRecordData);
@@ -189,25 +175,9 @@ export class HealthRecordController {
         throw createError('Health record ID is required', 400, 'MISSING_ID');
       }
 
-      const nextVisitDate =
-        updates.nextVisitDate === null
-          ? null
-          : updates.nextVisitDate
-            ? parseUTCDate(updates.nextVisitDate)
-            : undefined;
-
-      if (nextVisitDate instanceof Date && nextVisitDate <= new Date()) {
-        throw createError(
-          'Next visit date must be in the future',
-          400,
-          'INVALID_NEXT_VISIT_DATE'
-        );
-      }
-
       const convertedUpdates = {
         ...updates,
         date: updates.date ? parseUTCDate(updates.date) : undefined,
-        nextVisitDate,
       };
 
       const record = await this.healthRecordService.updateHealthRecord(userId, id, convertedUpdates);

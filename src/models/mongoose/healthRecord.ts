@@ -6,17 +6,7 @@ const healthRecordSchema = new Schema<IHealthRecordDocument>({
   petId: { type: Schema.Types.ObjectId, ref: 'Pet', required: true, index: true },
   type: { type: String, required: true },
   title: { type: String, required: true },
-  description: String,
   date: { type: Date, required: true },
-  veterinarian: String,
-  clinic: String,
-  cost: Number,
-  currency: { type: String },
-  baseCurrency: { type: String, index: true },
-  amountBase: { type: Number, index: true },
-  fxRate: { type: Number },
-  fxAsOf: { type: Date },
-  notes: String,
   attachments: String,
   treatmentPlan: [{
     name: { type: String, required: true },
@@ -25,8 +15,6 @@ const healthRecordSchema = new Schema<IHealthRecordDocument>({
     duration: String,
     notes: String
   }],
-  nextVisitEventId: { type: Schema.Types.ObjectId, ref: 'Event' },
-  expenseId: { type: Schema.Types.ObjectId, ref: 'Expense' },
 }, {
   timestamps: true
 });

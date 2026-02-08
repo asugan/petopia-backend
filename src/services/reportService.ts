@@ -2,9 +2,6 @@ import PDFDocument from 'pdfkit';
 import { Types } from 'mongoose';
 import { EventModel, ExpenseModel, HealthRecordModel, PetModel } from '../models/mongoose';
 import { createError } from '../middleware/errorHandler';
-import { UserSettingsService } from './userSettingsService';
-
-const userSettingsService = new UserSettingsService();
 
 interface VetSummaryInput {
   userId: string;
@@ -19,8 +16,6 @@ export class ReportService {
       throw createError('Pet not found', 404, 'PET_NOT_FOUND');
     }
 
-    const baseCurrency = await userSettingsService.getUserBaseCurrency(userId);
-
     const healthRecords = await HealthRecordModel.find({
       userId: new Types.ObjectId(userId),
       petId: new Types.ObjectId(petId),
@@ -29,10 +24,7 @@ export class ReportService {
       .exec();
 
     const vetVisits = healthRecords.filter(
-      record =>
-        record.type === 'visit' ||
-        record.type === 'checkup' ||
-        !!record.veterinarian
+      record => record.type === 'visit' || record.type === 'checkup'
     );
     const events = await EventModel.find({
       userId: new Types.ObjectId(userId),
@@ -101,20 +93,14 @@ export class ReportService {
           .fillColor('gray')
           .text(
             [
-              record.veterinarian ? `Vet: ${record.veterinarian}` : null,
-              record.clinic ? `Clinic: ${record.clinic}` : null,
-              record.cost != null ? `Cost: ${formatCurrency(record.cost, record.currency)}` : null,
-              record.cost != null && record.currency !== baseCurrency && record.amountBase != null 
-                ? `(≈ ${formatCurrency(record.amountBase, baseCurrency)})` 
+              record.treatmentPlan && record.treatmentPlan.length > 0
+                ? `Treatments: ${record.treatmentPlan.length}`
                 : null,
             ]
               .filter(Boolean)
               .join(' • ')
           );
         doc.fillColor('black');
-        if (record.description) {
-          doc.fontSize(9).text(record.description);
-        }
         doc.moveDown(0.4);
       });
     }

@@ -56,21 +56,9 @@ export interface IHealthRecordDocument extends Document {
   petId: Types.ObjectId;
   type: HealthRecordType;
   title: string;
-  description?: string;
   date: Date;
-  veterinarian?: string;
-  clinic?: string;
-  cost?: number;
-  currency?: string;
-  baseCurrency?: string;
-  amountBase?: number;
-  fxRate?: number;
-  fxAsOf?: Date;
-  notes?: string;
   attachments?: string;
   treatmentPlan?: ITreatmentPlanItem[];
-  nextVisitEventId?: Types.ObjectId;
-  expenseId?: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }

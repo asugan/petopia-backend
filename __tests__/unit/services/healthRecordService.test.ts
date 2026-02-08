@@ -13,16 +13,10 @@ vi.mock('../../../src/models/mongoose', () => {
       countDocuments: vi.fn(),
       find: vi.fn(),
     },
-    EventModel: {
-      create: vi.fn(),
-      findOne: vi.fn(),
-      findOneAndUpdate: vi.fn(),
-      findOneAndDelete: vi.fn(),
-    },
   };
 });
 
-import { EventModel, HealthRecordModel, PetModel } from '../../../src/models/mongoose';
+import { HealthRecordModel, PetModel } from '../../../src/models/mongoose';
 import { HealthRecordService } from '../../../src/services/healthRecordService';
 
 type MockFn = ReturnType<typeof vi.fn>;
@@ -41,156 +35,57 @@ describe('HealthRecordService', () => {
     findOneAndDelete: MockFn;
   };
 
-  const EventModelMock = EventModel as unknown as {
-    create: MockFn;
-    findOne: MockFn;
-    findOneAndUpdate: MockFn;
-    findOneAndDelete: MockFn;
-  };
-
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('deletes created Event if HealthRecord creation fails', async () => {
-    const petExec = vi.fn().mockResolvedValue({ _id: 'pet-1' });
-    PetModelMock.findOne.mockReturnValue({ exec: petExec });
+  it('creates health record when pet exists', async () => {
+    PetModelMock.findOne.mockReturnValue({ exec: vi.fn().mockResolvedValue({ _id: 'pet-1' }) });
+    HealthRecordModelMock.create.mockResolvedValue([{ _id: 'record-1', title: 'Checkup' }]);
 
-    EventModelMock.create.mockResolvedValue([{ _id: 'event-1' }]);
+    const service = new HealthRecordService();
+    const result = await service.createHealthRecord(userId, {
+      petId: 'pet-1',
+      type: 'visit',
+      title: 'Checkup',
+      date: new Date('2025-01-01T00:00:00.000Z'),
+    });
 
-    HealthRecordModelMock.create.mockRejectedValue(
-      new Error('health record create failed')
-    );
+    expect(result._id).toBe('record-1');
+  });
 
-    const deleteExec = vi.fn().mockResolvedValue({ _id: 'event-1' });
-    EventModelMock.findOneAndDelete.mockReturnValue({ exec: deleteExec });
+  it('throws when pet is not found on create', async () => {
+    PetModelMock.findOne.mockReturnValue({ exec: vi.fn().mockResolvedValue(null) });
 
     const service = new HealthRecordService();
 
     await expect(
       service.createHealthRecord(userId, {
-        petId: 'pet-1',
+        petId: 'pet-404',
         type: 'visit',
         title: 'Checkup',
         date: new Date('2025-01-01T00:00:00.000Z'),
-        nextVisitDate: new Date('2025-02-01T00:00:00.000Z'),
       })
-    ).rejects.toThrow('health record create failed');
-
-    expect(EventModelMock.findOneAndDelete).toHaveBeenCalledWith({
-      _id: 'event-1',
-      userId,
-    });
+    ).rejects.toThrow('Pet not found');
   });
 
-  it('deletes created Event if HealthRecord update fails after creating new Event', async () => {
-    const findRecordExec = vi.fn().mockResolvedValue({
-      _id: 'record-1',
-      userId,
-      petId: 'pet-1',
-      title: 'Old title',
-      nextVisitEventId: undefined,
-    });
-    HealthRecordModelMock.findOne.mockReturnValue({ exec: findRecordExec });
-
-    EventModelMock.create.mockResolvedValue([{ _id: 'event-2' }]);
-
+  it('updates health record with provided fields', async () => {
     HealthRecordModelMock.findOneAndUpdate.mockReturnValue({
-      exec: vi.fn().mockRejectedValue(new Error('update failed')),
-    });
-
-    EventModelMock.findOneAndDelete.mockReturnValue({
-      exec: vi.fn().mockResolvedValue({ _id: 'event-2' }),
+      exec: vi.fn().mockResolvedValue({ _id: 'record-1', title: 'Updated' }),
     });
 
     const service = new HealthRecordService();
+    const result = await service.updateHealthRecord(userId, 'record-1', { title: 'Updated' });
 
-    await expect(
-      service.updateHealthRecord(userId, 'record-1', {
-        title: 'New title',
-        nextVisitDate: new Date('2025-02-01T00:00:00.000Z'),
-      })
-    ).rejects.toThrow('update failed');
-
-    expect(EventModelMock.findOneAndDelete).toHaveBeenCalledWith({
-      _id: 'event-2',
-      userId,
-    });
+    expect(result?._id).toBe('record-1');
   });
 
-  it('rolls back Event title sync if HealthRecord update fails', async () => {
-    const findRecordExec = vi.fn().mockResolvedValue({
-      _id: 'record-1',
-      userId,
-      petId: 'pet-1',
-      title: 'Old title',
-      nextVisitEventId: 'event-3',
-    });
-    HealthRecordModelMock.findOne.mockReturnValue({ exec: findRecordExec });
-
-    const oldStartTime = new Date('2025-02-01T00:00:00.000Z');
-    const findEventExec = vi.fn().mockResolvedValue({
-      _id: 'event-3',
-      startTime: oldStartTime,
-      title: 'Next Visit: Old title',
-    });
-    EventModelMock.findOne.mockReturnValue({ exec: findEventExec });
-
-    EventModelMock.findOneAndUpdate
-      .mockReturnValueOnce({ exec: vi.fn().mockResolvedValue({ _id: 'event-3' }) })
-      .mockReturnValueOnce({ exec: vi.fn().mockResolvedValue({ _id: 'event-3' }) });
-
-    HealthRecordModelMock.findOneAndUpdate.mockReturnValue({
-      exec: vi.fn().mockRejectedValue(new Error('record update failed')),
-    });
+  it('returns false when delete target is missing', async () => {
+    HealthRecordModelMock.findOneAndDelete.mockReturnValue({ exec: vi.fn().mockResolvedValue(null) });
 
     const service = new HealthRecordService();
+    const deleted = await service.deleteHealthRecord(userId, 'record-missing');
 
-    await expect(
-      service.updateHealthRecord(userId, 'record-1', {
-        title: 'New title',
-      })
-    ).rejects.toThrow('record update failed');
-
-    expect(EventModelMock.findOneAndUpdate).toHaveBeenCalledTimes(2);
-
-    const rollbackCall = EventModelMock.findOneAndUpdate.mock.calls[1];
-    expect(rollbackCall?.[0]).toEqual({ _id: 'event-3', userId });
-    expect(rollbackCall?.[1]).toEqual({
-      startTime: oldStartTime,
-      title: 'Next Visit: Old title',
-    });
-  });
-
-  it('re-links record if clearing nextVisitDate fails to delete Event', async () => {
-    const findRecordExec = vi.fn().mockResolvedValue({
-      _id: 'record-1',
-      userId,
-      petId: 'pet-1',
-      title: 'Title',
-      nextVisitEventId: 'event-4',
-    });
-    HealthRecordModelMock.findOne.mockReturnValue({ exec: findRecordExec });
-
-    HealthRecordModelMock.findOneAndUpdate
-      .mockReturnValueOnce({ exec: vi.fn().mockResolvedValue({ _id: 'record-1' }) })
-      .mockReturnValueOnce({ exec: vi.fn().mockResolvedValue({ _id: 'record-1' }) });
-
-    EventModelMock.findOneAndDelete.mockReturnValue({
-      exec: vi.fn().mockRejectedValue(new Error('event delete failed')),
-    });
-
-    const service = new HealthRecordService();
-
-    await expect(
-      service.updateHealthRecord(userId, 'record-1', {
-        nextVisitDate: null,
-      })
-    ).rejects.toThrow('event delete failed');
-
-    expect(HealthRecordModelMock.findOneAndUpdate).toHaveBeenCalledWith(
-      { _id: 'record-1', userId },
-      { nextVisitEventId: 'event-4' }
-    );
+    expect(deleted).toBe(false);
   });
 });

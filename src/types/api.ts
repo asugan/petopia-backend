@@ -57,13 +57,7 @@ export interface CreateHealthRecordRequest {
   petId: string;
   type: HealthRecordType;
   title: string;
-  description?: string;
   date: string;
-  veterinarian?: string;
-  clinic?: string;
-  cost?: number;
-  currency?: string;
-  notes?: string;
   attachments?: string;
   treatmentPlan?: {
     name: string;
@@ -72,19 +66,12 @@ export interface CreateHealthRecordRequest {
     duration?: string;
     notes?: string;
   }[];
-  nextVisitDate?: string;
 }
 
 export interface UpdateHealthRecordRequest {
   type?: HealthRecordType;
   title?: string;
-  description?: string;
   date?: string;
-  veterinarian?: string;
-  clinic?: string;
-  cost?: number;
-  currency?: string;
-  notes?: string;
   attachments?: string;
   treatmentPlan?: {
     name: string;
@@ -93,7 +80,6 @@ export interface UpdateHealthRecordRequest {
     duration?: string;
     notes?: string;
   }[];
-  nextVisitDate?: string | null;
 }
 
 export interface CreateEventRequest {
