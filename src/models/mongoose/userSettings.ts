@@ -32,7 +32,7 @@ const userSettingsSchema = new Schema<IUserSettingsDocument>(
     },
     language: {
       type: String,
-      default: 'tr',
+      default: 'en',
     },
     theme: {
       type: String,
