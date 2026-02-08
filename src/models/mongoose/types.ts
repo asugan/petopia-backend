@@ -133,11 +133,7 @@ export interface IExpenseDocument extends Document {
   fxRate?: number;
   fxAsOf?: Date;
   paymentMethod?: string;
-  description?: string;
   date: Date;
-  receiptPhoto?: string;
-  vendor?: string;
-  notes?: string;
   createdAt: Date;
   updatedAt: Date;
 }

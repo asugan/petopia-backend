@@ -196,11 +196,7 @@ export interface CreateExpenseRequest {
   amount: number;
   currency?: string;
   paymentMethod?: string;
-  description?: string;
   date: string;
-  receiptPhoto?: string;
-  vendor?: string;
-  notes?: string;
 }
 
 export interface UpdateExpenseRequest {
@@ -208,11 +204,7 @@ export interface UpdateExpenseRequest {
   amount?: number;
   currency?: string;
   paymentMethod?: string;
-  description?: string;
   date?: string;
-  receiptPhoto?: string;
-  vendor?: string;
-  notes?: string;
 }
 
 export interface ExpenseQueryParams extends PaginationParams {

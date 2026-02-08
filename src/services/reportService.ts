@@ -177,10 +177,6 @@ export class ReportService {
               expense.currency
             )}`
           );
-        if (expense.description) {
-          doc.fontSize(9).fillColor('gray').text(expense.description);
-          doc.fillColor('black');
-        }
         doc.moveDown(0.3);
       });
     }

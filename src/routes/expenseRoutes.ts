@@ -40,11 +40,7 @@ const createExpenseSchema = z.object({
     .length(3, 'Currency must be 3 characters (e.g., TRY, USD, EUR)')
     .optional(),
   paymentMethod: z.enum(paymentMethods).optional(),
-  description: z.string().optional(),
   date: z.string().min(1, 'Date is required'),
-  receiptPhoto: z.string().url('Receipt photo must be a valid URL').optional(),
-  vendor: z.string().optional(),
-  notes: z.string().optional(),
 });
 
 const updateExpenseSchema = z.object({
@@ -52,11 +48,7 @@ const updateExpenseSchema = z.object({
   amount: z.number().positive('Amount must be positive').optional(),
   currency: z.string().length(3, 'Currency must be 3 characters').optional(),
   paymentMethod: z.enum(paymentMethods).optional(),
-  description: z.string().optional(),
   date: z.string().optional(),
-  receiptPhoto: z.string().url('Receipt photo must be a valid URL').optional(),
-  vendor: z.string().optional(),
-  notes: z.string().optional(),
 });
 
 // Special routes (must come before parameterized routes)

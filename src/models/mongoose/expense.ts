@@ -12,11 +12,7 @@ const expenseSchema = new Schema<IExpenseDocument>({
   fxRate: { type: Number },
   fxAsOf: { type: Date },
   paymentMethod: String,
-  description: String,
   date: { type: Date, required: true },
-  receiptPhoto: String,
-  vendor: String,
-  notes: String,
 }, {
   timestamps: true
 });

@@ -371,10 +371,7 @@ export class ExpenseService {
       'FX Rate',
       'FX As Of',
       'Payment Method',
-      'Description',
       'Date',
-      'Vendor',
-      'Notes',
     ];
     const rows = expenseList.map((expense: HydratedDocument<IExpenseDocument>) => [
       expense._id.toString(),
@@ -387,10 +384,7 @@ export class ExpenseService {
       expense.fxRate?.toString() ?? '',
       expense.fxAsOf?.toISOString() ?? '',
       expense.paymentMethod ?? '',
-      expense.description ?? '',
       expense.date.toISOString(),
-      expense.vendor ?? '',
-      expense.notes ?? '',
     ]);
 
     const csvContent = [
@@ -492,19 +486,6 @@ export class ExpenseService {
           `${expense.date.toISOString().split('T')[0]} • ${expense.category} • ${formatCurrency(expense.amount, expense.currency)}${expense.amountBase ? ` (≈ ${formatCurrency(expense.amountBase, expense.baseCurrency)})` : ''}`,
           { continued: false }
         );
-      if (expense.description) {
-        doc.fontSize(9).fillColor('gray').text(expense.description);
-        doc.fillColor('black');
-      }
-      if (expense.vendor || expense.notes) {
-        doc
-          .fontSize(9)
-          .text(
-            [expense.vendor ? `Vendor: ${expense.vendor}` : null, expense.notes ? `Notes: ${expense.notes}` : null]
-              .filter(Boolean)
-              .join(' • ')
-          );
-      }
       doc.moveDown(0.5);
     });
 
