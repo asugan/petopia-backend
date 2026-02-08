@@ -7,9 +7,6 @@ const eventSchema = new Schema<IEventDocument>({
   title: { type: String, required: true },
   type: { type: String, required: true },
   startTime: { type: Date, required: true },
-  endTime: Date,
-  location: String,
-  notes: String,
   reminder: { type: Boolean, default: false },
   reminderPreset: {
     type: String,

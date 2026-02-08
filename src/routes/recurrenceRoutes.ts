@@ -48,8 +48,6 @@ const createRecurrenceRuleSchema = z.object({
   petId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid pet ID format'),
   title: z.string().min(1, 'Title is required'),
   type: eventTypeEnum,
-  location: z.string().optional(),
-  notes: z.string().optional(),
   reminder: z.boolean().optional(),
   reminderPreset: z.enum(['standard', 'compact', 'minimal']).optional(),
 
@@ -67,9 +65,6 @@ const createRecurrenceRuleSchema = z.object({
   dayOfMonth: z.number().int().min(1).max(31).optional(),
   timesPerDay: z.number().int().min(1).max(10).optional(),
   dailyTimes: z.array(z.string().regex(/^\d{2}:\d{2}$/, 'Invalid time format (expected HH:MM)')).optional(),
-
-  // Duration settings
-  eventDurationMinutes: z.number().int().min(0).optional(),
 
   // Timezone with IANA validation
   timezone: z

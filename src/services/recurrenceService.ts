@@ -337,8 +337,6 @@ export class RecurrenceService {
       petId: new Types.ObjectId(data.petId),
       title: data.title,
       type: data.type,
-      location: data.location,
-      notes: data.notes,
       reminder: data.reminder ?? false,
       reminderPreset: data.reminderPreset ?? 'standard',
       vaccineName: data.vaccineName,
@@ -352,7 +350,6 @@ export class RecurrenceService {
       dayOfMonth: data.dayOfMonth,
       timesPerDay: data.timesPerDay,
       dailyTimes: data.dailyTimes,
-      eventDurationMinutes: data.eventDurationMinutes,
       timezone: data.timezone,
       startDate: parseUTCDate(data.startDate),
       endDate: data.endDate ? parseUTCDate(data.endDate) : undefined,
@@ -394,8 +391,6 @@ export class RecurrenceService {
     // Update rule fields
     if (data.title !== undefined) rule.title = data.title;
     if (data.type !== undefined) rule.type = data.type;
-    if (data.location !== undefined) rule.location = data.location;
-    if (data.notes !== undefined) rule.notes = data.notes;
     if (data.reminder !== undefined) rule.reminder = data.reminder;
     if (data.reminderPreset !== undefined)
       rule.reminderPreset = data.reminderPreset;
@@ -412,8 +407,6 @@ export class RecurrenceService {
     if (data.dayOfMonth !== undefined) rule.dayOfMonth = data.dayOfMonth;
     if (data.timesPerDay !== undefined) rule.timesPerDay = data.timesPerDay;
     if (data.dailyTimes !== undefined) rule.dailyTimes = data.dailyTimes;
-    if (data.eventDurationMinutes !== undefined)
-      rule.eventDurationMinutes = data.eventDurationMinutes;
     if (data.timezone !== undefined) rule.timezone = data.timezone;
     if (data.startDate !== undefined)
       rule.startDate = parseUTCDate(data.startDate);
@@ -437,8 +430,6 @@ export class RecurrenceService {
         $set: {
           title: rule.title,
           type: rule.type,
-          location: rule.location,
-          notes: rule.notes,
           reminder: rule.reminder,
           reminderPreset: rule.reminderPreset,
           vaccineName: rule.vaccineName,
@@ -513,11 +504,6 @@ export class RecurrenceService {
       if (!date) continue;
 
       try {
-        // Calculate end time if duration is specified
-        const endTime = rule.eventDurationMinutes
-          ? new Date(date.getTime() + rule.eventDurationMinutes * 60 * 1000)
-          : undefined;
-
         // Upsert pattern for idempotency
         const existingEvent = await EventModel.findOne({
           recurrenceRuleId: rule._id,
@@ -531,9 +517,6 @@ export class RecurrenceService {
             title: rule.title,
             type: rule.type,
             startTime: date,
-            endTime,
-            location: rule.location,
-            notes: rule.notes,
             reminder: rule.reminder,
             reminderPreset: rule.reminderPreset,
             status: 'upcoming',

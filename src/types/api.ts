@@ -101,9 +101,6 @@ export interface CreateEventRequest {
   title: string;
   type: EventType;
   startTime: string;
-  endTime?: string;
-  location?: string;
-  notes?: string;
   reminder?: boolean;
   reminderPreset?: ReminderPresetKey;
   status?: EventStatus;
@@ -119,9 +116,6 @@ export interface UpdateEventRequest {
   title?: string;
   type?: EventType;
   startTime?: string;
-  endTime?: string;
-  location?: string;
-  notes?: string;
   reminder?: boolean;
   reminderPreset?: ReminderPresetKey;
   status?: EventStatus;
@@ -345,8 +339,6 @@ export interface CreateRecurrenceRuleRequest {
   petId: string;
   title: string;
   type: EventType;
-  location?: string;
-  notes?: string;
   reminder?: boolean;
   reminderPreset?: ReminderPresetKey;
 
@@ -365,9 +357,6 @@ export interface CreateRecurrenceRuleRequest {
   timesPerDay?: number;
   dailyTimes?: string[];
 
-  // Duration settings
-  eventDurationMinutes?: number;
-
   // Timezone
   timezone: string;
 
@@ -379,8 +368,6 @@ export interface CreateRecurrenceRuleRequest {
 export interface UpdateRecurrenceRuleRequest {
   title?: string;
   type?: EventType;
-  location?: string;
-  notes?: string;
   reminder?: boolean;
   reminderPreset?: ReminderPresetKey;
 
@@ -398,9 +385,6 @@ export interface UpdateRecurrenceRuleRequest {
   dayOfMonth?: number;
   timesPerDay?: number;
   dailyTimes?: string[];
-
-  // Duration settings
-  eventDurationMinutes?: number;
 
   // Timezone
   timezone?: string;

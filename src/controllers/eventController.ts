@@ -156,9 +156,6 @@ export class EventController {
       const convertedEventData = {
         ...eventData,
         startTime: parseUTCDate(eventData.startTime),
-        endTime: eventData.endTime
-          ? parseUTCDate(eventData.endTime)
-          : undefined,
       };
 
       const event = await this.eventService.createEvent(
@@ -192,12 +189,6 @@ export class EventController {
         startTime: updates.startTime
           ? parseUTCDate(updates.startTime)
           : undefined,
-        endTime:
-          updates.endTime !== undefined
-            ? updates.endTime
-              ? parseUTCDate(updates.endTime)
-              : null
-            : undefined,
       } as Partial<IEventDocument>; // Cast needed for null vs undefined/optional
 
       const event = await this.eventService.updateEvent(

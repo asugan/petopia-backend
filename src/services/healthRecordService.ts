@@ -63,9 +63,6 @@ type EventSnapshot = Pick<
   | 'title'
   | 'type'
   | 'startTime'
-  | 'endTime'
-  | 'location'
-  | 'notes'
   | 'reminder'
   | 'vaccineName'
   | 'vaccineManufacturer'
@@ -662,9 +659,6 @@ export class HealthRecordService {
           title: linkedEvent.title,
           type: linkedEvent.type,
           startTime: linkedEvent.startTime,
-          endTime: linkedEvent.endTime,
-          location: linkedEvent.location,
-          notes: linkedEvent.notes,
           reminder: linkedEvent.reminder,
           vaccineName: linkedEvent.vaccineName,
           vaccineManufacturer: linkedEvent.vaccineManufacturer,

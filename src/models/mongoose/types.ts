@@ -83,9 +83,6 @@ export interface IEventDocument extends Document {
   title: string;
   type: EventType;
   startTime: Date;
-  endTime?: Date;
-  location?: string;
-  notes?: string;
   reminder: boolean;
   reminderPreset?: ReminderPresetKey;
   status: EventStatus;
@@ -249,8 +246,6 @@ export interface IRecurrenceRuleDocument extends Document {
   // Event template data
   title: string;
   type: EventType;
-  location?: string;
-  notes?: string;
   reminder: boolean;
   reminderPreset?: ReminderPresetKey;
 
@@ -268,9 +263,6 @@ export interface IRecurrenceRuleDocument extends Document {
   dayOfMonth?: number;
   timesPerDay?: number;
   dailyTimes?: string[];
-
-  // Duration settings
-  eventDurationMinutes?: number;
 
   // Timezone
   timezone: string;

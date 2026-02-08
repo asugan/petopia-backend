@@ -145,10 +145,6 @@ export class ReportService {
         doc
           .fontSize(10)
           .text(`${formatDate(record.startTime)} • ${record.medicationName ?? record.title}`);
-        if (record.notes) {
-          doc.fontSize(9).fillColor('gray').text(record.notes);
-          doc.fillColor('black');
-        }
         doc.moveDown(0.3);
       });
     }

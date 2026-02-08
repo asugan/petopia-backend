@@ -578,7 +578,6 @@ describe('EventController', () => {
         title: 'Event with Dates',
         type: 'feeding',
         startTime: '2025-01-15T10:00:00.000Z',
-        endTime: '2025-01-15T11:00:00.000Z',
       };
 
       const mockEvent = {
@@ -597,38 +596,7 @@ describe('EventController', () => {
       await controller.createEvent(req, res, mockNext);
 
       expect(parseUTCDate).toHaveBeenCalledWith('2025-01-15T10:00:00.000Z');
-      expect(parseUTCDate).toHaveBeenCalledWith('2025-01-15T11:00:00.000Z');
-    });
-
-    it('should handle event creation without endTime', async () => {
-      const eventData: CreateEventRequest = {
-        petId: mockPetId,
-        title: 'Event without end time',
-        type: 'feeding',
-        startTime: '2025-01-15T10:00:00.000Z',
-      };
-
-      const mockEvent = {
-        _id: mockEventId,
-        ...eventData,
-        userId: mockUserId,
-      };
-
-      (controller.eventService as any).createEvent = vi.fn().mockResolvedValue(mockEvent);
-
-      const req = mockRequest({ body: eventData });
-      const res = mockResponse();
-
-      await controller.createEvent(req, res, mockNext);
-
-      expect(parseUTCDate).toHaveBeenCalledWith('2025-01-15T10:00:00.000Z');
       expect(parseUTCDate).toHaveBeenCalledTimes(1);
-      expect(controller.eventService.createEvent).toHaveBeenCalledWith(
-        mockUserId,
-        expect.objectContaining({
-          endTime: undefined,
-        })
-      );
     });
 
     it('should handle service errors gracefully', async () => {
@@ -730,49 +698,17 @@ describe('EventController', () => {
       );
     });
 
-    it('should handle endTime null assignment (clearing endTime)', async () => {
-      const updates: UpdateEventRequest = {
-        endTime: null,
-      };
-
-      const mockEvent = {
-        _id: mockEventId,
-        userId: mockUserId,
-        endTime: null,
-      };
-
-      (controller.eventService as any).updateEvent = vi.fn().mockResolvedValue(mockEvent);
-
-      const req = mockRequest({
-        params: { id: mockEventId },
-        body: updates,
-      });
-      const res = mockResponse();
-
-      await controller.updateEvent(req, res, mockNext);
-
-      expect(res.status).toHaveBeenCalledWith(200);
-      expect(controller.eventService.updateEvent).toHaveBeenCalledWith(
-        mockUserId,
-        mockEventId,
-        expect.objectContaining({ endTime: null })
-      );
-    });
-
-    it('should parse startTime and endTime to UTC Date objects', async () => {
+    it('should parse startTime to UTC Date object', async () => {
       const updates: UpdateEventRequest = {
         startTime: '2025-01-20T09:00:00.000Z',
-        endTime: '2025-01-20T10:00:00.000Z',
       };
 
       const startTimeDate = new Date('2025-01-20T09:00:00.000Z');
-      const endTimeDate = new Date('2025-01-20T10:00:00.000Z');
 
       const mockEvent = {
         _id: mockEventId,
         userId: mockUserId,
         startTime: startTimeDate,
-        endTime: endTimeDate,
       };
 
       (controller.eventService as any).updateEvent = vi.fn().mockResolvedValue(mockEvent);
@@ -786,7 +722,7 @@ describe('EventController', () => {
       await controller.updateEvent(req, res, mockNext);
 
       expect(parseUTCDate).toHaveBeenCalledWith('2025-01-20T09:00:00.000Z');
-      expect(parseUTCDate).toHaveBeenCalledWith('2025-01-20T10:00:00.000Z');
+      expect(parseUTCDate).toHaveBeenCalledTimes(1);
     });
 
     it('should handle update with only startTime', async () => {

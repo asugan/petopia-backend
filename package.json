@@ -14,6 +14,7 @@
     "db:generate-indexes": "node scripts/generate-indexes.js",
     "db:migrate-timezone": "node scripts/migrate-timezone.cjs",
     "db:migrate-remove-event-description": "node scripts/migrate-remove-event-description.cjs",
+    "db:migrate-remove-event-extra-fields": "node scripts/migrate-remove-event-extra-fields.cjs",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",

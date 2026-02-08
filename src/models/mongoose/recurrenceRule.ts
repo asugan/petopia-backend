@@ -8,8 +8,6 @@ const recurrenceRuleSchema = new Schema<IRecurrenceRuleDocument>({
   // Event template data
   title: { type: String, required: true },
   type: { type: String, required: true },
-  location: String,
-  notes: String,
   reminder: { type: Boolean, default: false },
   reminderPreset: {
     type: String,
@@ -35,9 +33,6 @@ const recurrenceRuleSchema = new Schema<IRecurrenceRuleDocument>({
   dayOfMonth: { type: Number, min: 1, max: 31 },
   timesPerDay: { type: Number, min: 1, max: 10 },
   dailyTimes: [String], // ["08:00", "14:00", "20:00"]
-
-  // Duration settings
-  eventDurationMinutes: { type: Number, min: 0 },
 
   // Timezone
   timezone: { type: String, required: true, default: 'UTC' },
