@@ -61,7 +61,6 @@ type EventSnapshot = Pick<
   IEventDocument,
   | 'petId'
   | 'title'
-  | 'description'
   | 'type'
   | 'startTime'
   | 'endTime'
@@ -149,7 +148,6 @@ export class HealthRecordService {
         title: `Next Visit: ${healthRecordTitle}`,
         startTime: nextVisitDate,
         reminder: true,
-        description: `Follow-up for ${healthRecordTitle}`,
       },
     ]);
 
@@ -480,7 +478,6 @@ export class HealthRecordService {
 
     const baseTitle = restUpdates.title ?? existingRecord.title;
     const eventTitle = `Next Visit: ${baseTitle}`;
-    const eventDescription = `Follow-up for ${baseTitle}`;
 
     const linkedEventId = existingRecord.nextVisitEventId;
 
@@ -531,7 +528,6 @@ export class HealthRecordService {
           eventId: Types.ObjectId;
           startTime: Date;
           title: string;
-          description?: string;
         }
       | undefined;
 
@@ -545,7 +541,6 @@ export class HealthRecordService {
               eventId: previousEvent._id,
               startTime: previousEvent.startTime,
               title: previousEvent.title,
-              description: previousEvent.description,
             };
 
             const updatedEvent = await EventModel.findOneAndUpdate(
@@ -553,7 +548,6 @@ export class HealthRecordService {
               {
                 startTime: nextVisitDate,
                 title: eventTitle,
-                description: eventDescription,
               },
               { new: true }
             ).exec();
@@ -589,14 +583,12 @@ export class HealthRecordService {
             eventId: previousEvent._id,
             startTime: previousEvent.startTime,
             title: previousEvent.title,
-            description: previousEvent.description,
           };
 
           const updatedEvent = await EventModel.findOneAndUpdate(
             { _id: previousEvent._id, userId },
             {
               title: eventTitle,
-              description: eventDescription,
             },
             { new: true }
           ).exec();
@@ -639,7 +631,6 @@ export class HealthRecordService {
           {
             startTime: rollbackEvent.startTime,
             title: rollbackEvent.title,
-            description: rollbackEvent.description,
           }
         )
           .exec()
@@ -669,7 +660,6 @@ export class HealthRecordService {
         linkedEventSnapshot = {
           petId: linkedEvent.petId,
           title: linkedEvent.title,
-          description: linkedEvent.description,
           type: linkedEvent.type,
           startTime: linkedEvent.startTime,
           endTime: linkedEvent.endTime,

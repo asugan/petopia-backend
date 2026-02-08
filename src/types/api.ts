@@ -99,7 +99,6 @@ export interface UpdateHealthRecordRequest {
 export interface CreateEventRequest {
   petId: string;
   title: string;
-  description?: string;
   type: EventType;
   startTime: string;
   endTime?: string;
@@ -118,7 +117,6 @@ export interface CreateEventRequest {
 
 export interface UpdateEventRequest {
   title?: string;
-  description?: string;
   type?: EventType;
   startTime?: string;
   endTime?: string;
@@ -346,7 +344,6 @@ export type { RecurrenceFrequency } from '../models/mongoose/types';
 export interface CreateRecurrenceRuleRequest {
   petId: string;
   title: string;
-  description?: string;
   type: EventType;
   location?: string;
   notes?: string;
@@ -381,7 +378,6 @@ export interface CreateRecurrenceRuleRequest {
 
 export interface UpdateRecurrenceRuleRequest {
   title?: string;
-  description?: string;
   type?: EventType;
   location?: string;
   notes?: string;

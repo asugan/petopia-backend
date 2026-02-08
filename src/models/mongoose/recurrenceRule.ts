@@ -7,7 +7,6 @@ const recurrenceRuleSchema = new Schema<IRecurrenceRuleDocument>({
 
   // Event template data
   title: { type: String, required: true },
-  description: String,
   type: { type: String, required: true },
   location: String,
   notes: String,

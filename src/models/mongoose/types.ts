@@ -81,7 +81,6 @@ export interface IEventDocument extends Document {
   userId: Types.ObjectId;
   petId: Types.ObjectId;
   title: string;
-  description?: string;
   type: EventType;
   startTime: Date;
   endTime?: Date;
@@ -249,7 +248,6 @@ export interface IRecurrenceRuleDocument extends Document {
 
   // Event template data
   title: string;
-  description?: string;
   type: EventType;
   location?: string;
   notes?: string;

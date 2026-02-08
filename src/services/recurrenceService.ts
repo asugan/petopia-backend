@@ -336,7 +336,6 @@ export class RecurrenceService {
       userId: new Types.ObjectId(userId),
       petId: new Types.ObjectId(data.petId),
       title: data.title,
-      description: data.description,
       type: data.type,
       location: data.location,
       notes: data.notes,
@@ -394,7 +393,6 @@ export class RecurrenceService {
 
     // Update rule fields
     if (data.title !== undefined) rule.title = data.title;
-    if (data.description !== undefined) rule.description = data.description;
     if (data.type !== undefined) rule.type = data.type;
     if (data.location !== undefined) rule.location = data.location;
     if (data.notes !== undefined) rule.notes = data.notes;
@@ -438,7 +436,6 @@ export class RecurrenceService {
       {
         $set: {
           title: rule.title,
-          description: rule.description,
           type: rule.type,
           location: rule.location,
           notes: rule.notes,
@@ -532,7 +529,6 @@ export class RecurrenceService {
             userId: rule.userId,
             petId: rule.petId,
             title: rule.title,
-            description: rule.description,
             type: rule.type,
             startTime: date,
             endTime,

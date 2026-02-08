@@ -5,7 +5,6 @@ const eventSchema = new Schema<IEventDocument>({
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   petId: { type: Schema.Types.ObjectId, ref: 'Pet', required: true, index: true },
   title: { type: String, required: true },
-  description: String,
   type: { type: String, required: true },
   startTime: { type: Date, required: true },
   endTime: Date,

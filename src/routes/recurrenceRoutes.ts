@@ -47,7 +47,6 @@ const frequencyEnum = z.enum([
 const createRecurrenceRuleSchema = z.object({
   petId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid pet ID format'),
   title: z.string().min(1, 'Title is required'),
-  description: z.string().optional(),
   type: eventTypeEnum,
   location: z.string().optional(),
   notes: z.string().optional(),

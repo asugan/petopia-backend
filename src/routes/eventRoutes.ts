@@ -11,7 +11,6 @@ const eventController = new EventController();
 const createEventSchema = z.object({
   petId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid pet ID format'),
   title: z.string().min(1, 'Title is required'),
-  description: z.string().optional(),
   type: z.enum([
     'feeding',
     'exercise',

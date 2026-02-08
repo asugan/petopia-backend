@@ -817,7 +817,6 @@ describe('EventController', () => {
     it('should not parse dates when not provided in updates', async () => {
       const updates: UpdateEventRequest = {
         title: 'New Title',
-        description: 'New Description',
       };
 
       const mockEvent = {

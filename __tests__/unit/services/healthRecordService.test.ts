@@ -133,7 +133,6 @@ describe('HealthRecordService', () => {
       _id: 'event-3',
       startTime: oldStartTime,
       title: 'Next Visit: Old title',
-      description: 'Follow-up for Old title',
     });
     EventModelMock.findOne.mockReturnValue({ exec: findEventExec });
 
@@ -160,7 +159,6 @@ describe('HealthRecordService', () => {
     expect(rollbackCall?.[1]).toEqual({
       startTime: oldStartTime,
       title: 'Next Visit: Old title',
-      description: 'Follow-up for Old title',
     });
   });
 

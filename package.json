@@ -13,6 +13,7 @@
     "db:status": "node scripts/check-mongodb.js",
     "db:generate-indexes": "node scripts/generate-indexes.js",
     "db:migrate-timezone": "node scripts/migrate-timezone.cjs",
+    "db:migrate-remove-event-description": "node scripts/migrate-remove-event-description.cjs",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
