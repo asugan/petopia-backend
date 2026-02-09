@@ -1,11 +1,14 @@
 import { HydratedDocument } from 'mongoose';
 import {
   ExpenseModel,
+  FeedingScheduleModel,
   IUserSettingsDocument,
+  PetModel,
   UserBudgetModel,
   UserSettingsModel,
 } from '../models/mongoose';
 import { ExchangeRateService } from './exchangeRateService';
+import { feedingReminderService } from './feedingReminderService';
 import { logger } from '../utils/logger';
 import { SUPPORTED_CURRENCIES, SupportedCurrency } from '../lib/constants';
 import { sanitizeTimezone } from '../lib/timezone';
@@ -92,6 +95,11 @@ export class UserSettingsService {
       return await newSettings.save();
     }
 
+    const previousTimezone = existingSettings.timezone;
+    const timezoneChanged =
+      updates.timezone !== undefined &&
+      updates.timezone !== previousTimezone;
+
     const updated = await UserSettingsModel.findOneAndUpdate(
       { userId },
       { ...updates },
@@ -100,6 +108,10 @@ export class UserSettingsService {
 
     if (!updated) {
       throw new Error('Failed to update user settings');
+    }
+
+    if (timezoneChanged) {
+      await this.resyncFeedingRemindersForTimezoneChange(userId, updated.timezone);
     }
 
     return updated;
@@ -275,5 +287,52 @@ export class UserSettingsService {
   private round(value: number, decimals = 2): number {
     const factor = Math.pow(10, decimals);
     return Math.round(value * factor) / factor;
+  }
+
+  private async resyncFeedingRemindersForTimezoneChange(
+    userId: string,
+    timezone: string
+  ): Promise<void> {
+    try {
+      const schedules = await FeedingScheduleModel.find({
+        userId,
+        isActive: true,
+        remindersEnabled: true,
+      })
+        .select('_id petId time foodType amount days reminderMinutesBefore')
+        .lean()
+        .exec();
+
+      for (const schedule of schedules) {
+        await feedingReminderService.cancelFeedingReminders(schedule._id.toString());
+
+        const pet = await PetModel.findById(schedule.petId)
+          .select('name')
+          .lean()
+          .exec();
+
+        await feedingReminderService.scheduleFeedingReminder({
+          scheduleId: schedule._id.toString(),
+          userId,
+          petId: schedule.petId.toString(),
+          petName: pet?.name ?? 'your pet',
+          time: schedule.time,
+          foodType: schedule.foodType,
+          amount: schedule.amount,
+          days: schedule.days,
+          reminderMinutesBefore: schedule.reminderMinutesBefore ?? 15,
+          timezone,
+        });
+      }
+
+      logger.info(
+        `Resynced ${schedules.length} feeding reminders for user ${userId} after timezone change to ${timezone}`
+      );
+    } catch (error) {
+      logger.error(
+        `Failed to resync feeding reminders for user ${userId} after timezone change:`,
+        error
+      );
+    }
   }
 }
