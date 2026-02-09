@@ -12,6 +12,21 @@ import { toString } from '../utils/express-utils';
 const router = Router({ mergeParams: true });
 const feedingScheduleController = new FeedingScheduleController();
 
+const dayEnum = z.enum([
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+  'sunday',
+]);
+
+const feedingDaysSchema = z.union([
+  z.string().min(1, 'Days are required'),
+  z.array(dayEnum).min(1, 'Days are required'),
+]);
+
 // Validation schemas
 const createFeedingScheduleSchema = z.object({
   petId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid pet ID format'),
@@ -20,7 +35,7 @@ const createFeedingScheduleSchema = z.object({
     .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Invalid time format (HH:MM)'),
   foodType: z.string().min(1, 'Food type is required'),
   amount: z.string().min(1, 'Amount is required'),
-  days: z.string().min(1, 'Days are required'),
+  days: feedingDaysSchema,
   isActive: z.boolean().optional(),
   remindersEnabled: z.boolean().optional(),
   reminderMinutesBefore: z.number().min(1).max(1440).optional(),

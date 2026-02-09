@@ -52,7 +52,7 @@ const createExpenseSchema = z.object({
     .length(3, 'Currency must be 3 characters (e.g., TRY, USD, EUR)')
     .optional(),
   paymentMethod: z.enum(paymentMethods).optional(),
-  date: z.string().min(1, 'Date is required'),
+  date: dateQuerySchema,
 });
 
 const updateExpenseSchema = z.object({
@@ -60,7 +60,7 @@ const updateExpenseSchema = z.object({
   amount: z.number().positive('Amount must be positive').optional(),
   currency: z.string().length(3, 'Currency must be 3 characters').optional(),
   paymentMethod: z.enum(paymentMethods).optional(),
-  date: z.string().optional(),
+  date: dateQuerySchema.optional(),
 });
 
 const expenseListQuerySchema = z

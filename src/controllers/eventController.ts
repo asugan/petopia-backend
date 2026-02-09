@@ -11,12 +11,41 @@ import { createError } from '../middleware/errorHandler';
 import { parseUTCDate } from '../lib/dateUtils';
 import { IEventDocument } from '../models/mongoose';
 import { toString } from '../utils/express-utils';
+import { isValidTimezone } from '../lib/timezone';
 
 export class EventController {
   private eventService: EventService;
 
   constructor() {
     this.eventService = new EventService();
+  }
+
+  private getRequestTimezone(req: AuthenticatedRequest): string {
+    const queryTimezone = toString(
+      (req.validatedQuery as { timezone?: string })?.timezone ??
+        (req.query.timezone as string | string[] | undefined)
+    ).trim();
+
+    const headerValue = req.headers?.['x-timezone'];
+    const headerTimezone = (Array.isArray(headerValue)
+      ? (headerValue[0] ?? '')
+      : (headerValue ?? '')
+    ).trim();
+
+    const effective = queryTimezone || headerTimezone;
+    if (!effective) {
+      return '';
+    }
+
+    if (!isValidTimezone(effective)) {
+      throw createError(
+        'Invalid IANA timezone identifier',
+        400,
+        'INVALID_TIMEZONE'
+      );
+    }
+
+    return effective;
   }
 
   // GET /api/events OR /api/pets/:petId/events - Get events for authenticated user
@@ -68,10 +97,7 @@ export class EventController {
     try {
       const userId = requireAuth(req);
       const date = toString(req.params.date);
-      const timezone = toString(
-        (req.validatedQuery as { timezone?: string })?.timezone ??
-          (req.query.timezone as string | string[] | undefined)
-      );
+      const timezone = this.getRequestTimezone(req);
       const params: EventQueryParams = {
         ...getPaginationParams(req.query),
         type: toString(req.query.type as string | string[] | undefined),
@@ -242,10 +268,7 @@ export class EventController {
     try {
       const userId = requireAuth(req);
       const petId = req.query.petId as string;
-      const timezone = toString(
-        (req.validatedQuery as { timezone?: string })?.timezone ??
-          (req.query.timezone as string | string[] | undefined)
-      );
+      const timezone = this.getRequestTimezone(req);
 
       // Parse and validate days parameter
       const daysParam = req.query.days;
@@ -298,10 +321,7 @@ export class EventController {
     try {
       const userId = requireAuth(req);
       const petId = toString(req.query.petId as string | string[] | undefined);
-      const timezone = toString(
-        (req.validatedQuery as { timezone?: string })?.timezone ??
-          (req.query.timezone as string | string[] | undefined)
-      );
+      const timezone = this.getRequestTimezone(req);
       const events = await this.eventService.getTodayEvents(
         userId,
         petId,

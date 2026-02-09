@@ -74,6 +74,45 @@ describe('RecurrenceService timezone-local day calculations', () => {
     };
 
     expect(firstCreateCall).toBeDefined();
-    expect(firstCreateCall.startTime.toISOString()).toBe('2026-02-10T06:00:00.000Z');
+    expect(firstCreateCall.startTime.toISOString()).toBe('2026-02-04T06:00:00.000Z');
+  });
+
+  it('uses rule.timezone local calendar date when applying daily times', async () => {
+    vi.setSystemTime(new Date('2026-02-03T00:00:00.000Z'));
+
+    const service = new RecurrenceService();
+
+    vi.mocked(RecurrenceRuleModel.findOne).mockReturnValue({
+      exec: vi.fn().mockResolvedValue({
+        _id: { toString: () => 'rule-2' },
+        userId: { toString: () => '507f1f77bcf86cd799439011' },
+        petId: { toString: () => '507f1f77bcf86cd799439012' },
+        title: 'Daily Medication',
+        type: 'medication',
+        reminder: false,
+        reminderPreset: 'standard',
+        frequency: 'daily',
+        interval: 1,
+        timezone: 'Pacific/Kiritimati',
+        // Local start date: 2026-02-04 00:00 (+14) => 2026-02-03T10:00:00Z
+        startDate: new Date('2026-02-03T10:00:00.000Z'),
+        endDate: null,
+        excludedDates: [],
+        dailyTimes: ['09:00'],
+        isActive: true,
+      }),
+    } as any);
+
+    await service.generateEvents('507f1f77bcf86cd799439011', 'rule-2');
+
+    expect(EventModel.create).toHaveBeenCalled();
+
+    const firstCreateCall = vi.mocked(EventModel.create).mock.calls[0]?.[0] as {
+      startTime: Date;
+    };
+
+    expect(firstCreateCall).toBeDefined();
+    // Local 2026-02-04 09:00 (+14) => 2026-02-03T19:00:00.000Z
+    expect(firstCreateCall.startTime.toISOString()).toBe('2026-02-03T19:00:00.000Z');
   });
 });

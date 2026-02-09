@@ -5,6 +5,8 @@ vi.mock('@/services/expenseService', () => ({
   ExpenseService: class {
     getExpenseStats = vi.fn();
     getExpensesByPetId = vi.fn();
+    createExpense = vi.fn();
+    updateExpense = vi.fn();
   },
 }));
 
@@ -92,5 +94,48 @@ describe('ExpenseController timezone/date query flow', () => {
     await controller.getExpenseStats(req, mockResponse(), next);
 
     expect(next).toHaveBeenCalledWith(expect.objectContaining({ code: 'INVALID_DATE_QUERY' }));
+  });
+
+  it('parses list range filters with parseUTCDate before service call', async () => {
+    (controller as any).expenseService.getExpensesByPetId = vi
+      .fn()
+      .mockResolvedValue({ expenses: [], total: 0 });
+
+    const req = mockRequest({
+      validatedQuery: {
+        startDate: '2026-02-01T00:00:00.000Z',
+        endDate: '2026-02-29T23:59:59.999Z',
+        page: 1,
+        limit: 10,
+      },
+      query: {},
+      params: {},
+    });
+
+    await controller.getExpensesByPetId(req, mockResponse(), next);
+
+    expect((controller as any).expenseService.getExpensesByPetId).toHaveBeenCalledWith(
+      '507f1f77bcf86cd799439011',
+      '',
+      expect.objectContaining({
+        startDate: new Date('2026-02-01T00:00:00.000Z'),
+        endDate: new Date('2026-02-29T23:59:59.999Z'),
+      })
+    );
+  });
+
+  it('returns INVALID_DATE_BODY when create payload date is invalid', async () => {
+    const req = mockRequest({
+      body: {
+        petId: '507f1f77bcf86cd799439012',
+        category: 'food',
+        amount: 100,
+        date: 'invalid',
+      },
+    });
+
+    await controller.createExpense(req, mockResponse(), next);
+
+    expect(next).toHaveBeenCalledWith(expect.objectContaining({ code: 'INVALID_DATE_BODY' }));
   });
 });

@@ -76,17 +76,14 @@ function applyTimeToDateInTimezone(
     throw new Error(`Invalid time format: ${timeString}. Expected HH:MM`);
   }
 
-  // Get date components from baseDate (UTC)
-  const year = baseDate.getUTCFullYear();
-  const month = baseDate.getUTCMonth();
-  const day = baseDate.getUTCDate();
-  const monthHuman = String(month + 1).padStart(2, '0');
-  const dayHuman = String(day).padStart(2, '0');
+  // Get local date components in the recurrence timezone.
+  // Using UTC components here can shift the calendar day for high positive offsets.
+  const localDate = formatInTimeZone(baseDate, timezone, 'yyyy-MM-dd');
   const hoursHuman = String(hours).padStart(2, '0');
   const minutesHuman = String(minutes).padStart(2, '0');
 
   return fromZonedTime(
-    `${year}-${monthHuman}-${dayHuman}T${hoursHuman}:${minutesHuman}:00`,
+    `${localDate}T${hoursHuman}:${minutesHuman}:00`,
     timezone
   );
 }

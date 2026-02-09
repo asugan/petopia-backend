@@ -17,7 +17,7 @@ export interface FeedingReminderConfig {
   time: string;
   foodType: string;
   amount: string;
-  days: string;
+  days: string | string[];
   reminderMinutesBefore: number;
   timezone?: string; // User's timezone (defaults to UTC)
 }
@@ -289,7 +289,11 @@ export class FeedingReminderService {
    * Uses the user's timezone for accurate day calculation
    * Uses date-fns-tz for clean timezone handling
    */
-  calculateNextFeedingTime(time: string, days: string, timezone = 'UTC'): Date | null {
+  calculateNextFeedingTime(
+    time: string,
+    days: string | string[],
+    timezone = 'UTC'
+  ): Date | null {
     return calculateNextFeedingTime(time, days, timezone);
   }
 

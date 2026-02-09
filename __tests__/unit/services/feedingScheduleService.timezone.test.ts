@@ -52,16 +52,18 @@ describe('FeedingScheduleService timezone day resolution', () => {
     await service.getTodaySchedules(userId);
 
     const query = vi.mocked(FeedingScheduleModel.find).mock.calls[0]?.[0] as any;
-    expect(query.days.$regex).toBe('monday');
-    expect(query.days.$options).toBe('i');
+    expect(query.$or[0].days.$in).toEqual(['monday']);
+    expect(query.$or[1].days.$regex).toBe('monday');
+    expect(query.$or[1].days.$options).toBe('i');
   });
 
   it('uses user timezone day for getNextFeedingTime', async () => {
     await service.getNextFeedingTime(userId);
 
     const query = vi.mocked(FeedingScheduleModel.findOne).mock.calls[0]?.[0] as any;
-    expect(query.days.$regex).toBe('monday');
-    expect(query.days.$options).toBe('i');
+    expect(query.$or[0].days.$in).toEqual(['monday']);
+    expect(query.$or[1].days.$regex).toBe('monday');
+    expect(query.$or[1].days.$options).toBe('i');
   });
 
   it('falls back to UTC when timezone is missing', async () => {

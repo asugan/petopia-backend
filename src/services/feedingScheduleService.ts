@@ -3,6 +3,7 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { FeedingScheduleModel, IFeedingScheduleDocument, PetModel } from '../models/mongoose';
 import { CreateFeedingScheduleRequest, FeedingScheduleQueryParams, UpdateFeedingScheduleRequest } from '../types/api';
 import { resolveUserTimezone } from './userTimezoneService';
+import { DayOfWeek, normalizeFeedingDaysInput } from '../lib/feedingDays';
 
 export class FeedingScheduleService {
   private dayNames = [
@@ -22,6 +23,25 @@ export class FeedingScheduleService {
   private getDayNameInTimezone(date: Date, timezone: string): string {
     const dayIndex = Number(formatInTimeZone(date, timezone, 'i')) % 7;
     return this.dayNames[dayIndex] ?? 'sunday';
+  }
+
+  private normalizeDaysOrThrow(
+    days: string | string[] | undefined,
+    options?: { required?: boolean }
+  ): DayOfWeek[] | undefined {
+    if (days === undefined) {
+      if (options?.required) {
+        throw new Error('Days are required');
+      }
+      return undefined;
+    }
+
+    const normalized = normalizeFeedingDaysInput(days);
+    if (normalized.length === 0 && options?.required) {
+      throw new Error('Days are required');
+    }
+
+    return normalized;
   }
 
   /**
@@ -92,7 +112,15 @@ export class FeedingScheduleService {
       throw new Error('Pet not found');
     }
 
-    const newSchedule = new FeedingScheduleModel({ ...scheduleData, userId });
+    const normalizedDays = this.normalizeDaysOrThrow(scheduleData.days, {
+      required: true,
+    });
+
+    const newSchedule = new FeedingScheduleModel({
+      ...scheduleData,
+      userId,
+      days: normalizedDays,
+    });
     const createdSchedule = await newSchedule.save();
 
     if (!createdSchedule) {
@@ -111,6 +139,10 @@ export class FeedingScheduleService {
   ): Promise<HydratedDocument<IFeedingScheduleDocument> | null> {
     // Don't allow updating userId
     const { ...safeUpdates } = updates;
+
+    if (safeUpdates.days !== undefined) {
+      safeUpdates.days = this.normalizeDaysOrThrow(safeUpdates.days);
+    }
 
     const updatedSchedule = await FeedingScheduleModel.findOneAndUpdate(
       { _id: id, userId },
@@ -163,7 +195,10 @@ export class FeedingScheduleService {
     const whereClause: QueryFilter<IFeedingScheduleDocument> = {
       userId: new Types.ObjectId(userId),
       isActive: true,
-      days: { $regex: todayName, $options: 'i' }
+      $or: [
+        { days: { $in: [todayName] } },
+        { days: { $regex: todayName, $options: 'i' } },
+      ],
     };
 
     if (petId) {
@@ -188,7 +223,10 @@ export class FeedingScheduleService {
     const whereClause: QueryFilter<IFeedingScheduleDocument> = {
       userId: new Types.ObjectId(userId),
       isActive: true,
-      days: { $regex: todayName, $options: 'i' }
+      $or: [
+        { days: { $in: [todayName] } },
+        { days: { $regex: todayName, $options: 'i' } },
+      ],
     };
 
     if (petId) {

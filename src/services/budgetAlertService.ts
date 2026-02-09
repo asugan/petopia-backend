@@ -145,7 +145,8 @@ export class BudgetAlertService {
     sent: number;
     failed: number;
   }> {
-    const periodKey = getUTCMonthPeriodKey();
+    const referenceDate = new Date();
+    const periodKey = getUTCMonthPeriodKey(referenceDate);
 
     // Get all users with active budgets
     const budgets = await UserBudgetModel.find({ isActive: true }).lean();
@@ -180,7 +181,11 @@ export class BudgetAlertService {
         }
 
         // Calculate current spending from expenses
-        const currentSpending = await this.getCurrentMonthSpending(userId, budget.currency);
+        const currentSpending = await this.getCurrentMonthSpending(
+          userId,
+          budget.currency,
+          referenceDate
+        );
         const percentage = budget.amount > 0 ? (currentSpending / budget.amount) * 100 : 0;
         const isExceeded = percentage >= 100;
         const severity = isExceeded ? 'critical' : 'warning';
@@ -243,8 +248,12 @@ export class BudgetAlertService {
   /**
    * Get current month spending for a user
    */
-  private async getCurrentMonthSpending(userId: string, currency: string): Promise<number> {
-    const { start, end } = getCurrentUTCMonthRange();
+  private async getCurrentMonthSpending(
+    userId: string,
+    currency: string,
+    referenceDate: Date = new Date()
+  ): Promise<number> {
+    const { start, end } = getCurrentUTCMonthRange(referenceDate);
 
     interface AggregateResult {
       _id: null;
@@ -285,7 +294,7 @@ export class BudgetAlertService {
       return { hasAlert: false, percentage: 0 };
     }
 
-    const periodKey = getUTCMonthPeriodKey();
+    const periodKey = getUTCMonthPeriodKey(new Date());
 
     const hasAlert = budget.lastAlertPeriod === periodKey;
     const severity = hasAlert ? budget.lastAlertSeverity : undefined;

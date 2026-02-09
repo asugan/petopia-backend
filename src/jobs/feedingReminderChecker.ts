@@ -22,7 +22,7 @@ interface FeedingScheduleForReminder {
   time: string;
   foodType: string;
   amount: string;
-  days: string;
+  days: string | string[];
   reminderMinutesBefore?: number;
 }
 
@@ -33,7 +33,7 @@ interface IFeedingScheduleDoc {
   time: string;
   foodType: string;
   amount: string;
-  days: string;
+  days: string | string[];
   isActive: boolean;
   remindersEnabled?: boolean;
   reminderMinutesBefore?: number;

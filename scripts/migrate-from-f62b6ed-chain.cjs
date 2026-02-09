@@ -3,6 +3,7 @@ const { spawn } = require('node:child_process');
 const migrationScripts = [
   'db:migrate-remove-event-description',
   'db:migrate-remove-event-extra-fields',
+  'db:migrate-feeding-days-to-array',
   'db:migrate-sync-feeding-reminders',
   'db:migrate-remove-expense-legacy-fields',
   'db:migrate-remove-health-record-legacy-fields',

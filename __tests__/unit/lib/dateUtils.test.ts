@@ -227,6 +227,16 @@ describe('parseUTCDate', () => {
     const parsed = parseUTCDate('2026-02-04T10:00:00-05:00');
     expect(parsed.toISOString()).toBe('2026-02-04T15:00:00.000Z');
   });
+
+  it('parses ISO strings with compact UTC offset correctly', () => {
+    const parsed = parseUTCDate('2026-02-04T10:00:00+0300');
+    expect(parsed.toISOString()).toBe('2026-02-04T07:00:00.000Z');
+  });
+
+  it('parses ISO strings with hour-only UTC offset correctly', () => {
+    const parsed = parseUTCDate('2026-02-04T10:00:00+03');
+    expect(parsed.toISOString()).toBe('2026-02-04T07:00:00.000Z');
+  });
 });
 
 describe('dateJSONReplacer', () => {
@@ -237,6 +247,18 @@ describe('dateJSONReplacer', () => {
 
   it('keeps offset datetime strings unchanged', () => {
     const value = '2026-02-04T10:00:00+03:00';
+    const result = dateJSONReplacer('startTime', value);
+    expect(result).toBe(value);
+  });
+
+  it('keeps compact offset datetime strings unchanged', () => {
+    const value = '2026-02-04T10:00:00+0300';
+    const result = dateJSONReplacer('startTime', value);
+    expect(result).toBe(value);
+  });
+
+  it('keeps hour-only offset datetime strings unchanged', () => {
+    const value = '2026-02-04T10:00:00+03';
     const result = dateJSONReplacer('startTime', value);
     expect(result).toBe(value);
   });

@@ -20,6 +20,14 @@ interface ExpenseFilter {
   baseCurrency?: string;
 }
 
+function toExpenseDate(value: string | Date): Date {
+  if (value instanceof Date) {
+    return value;
+  }
+
+  return parseUTCDate(value);
+}
+
 export class ExpenseService {
   async getExpensesByPetId(
     userId: string,
@@ -61,10 +69,10 @@ export class ExpenseService {
       const dateQuery: { $gte?: Date; $lte?: Date } = {};
       whereClause.date = dateQuery;
       if (startDate) {
-        dateQuery.$gte = parseUTCDate(startDate);
+        dateQuery.$gte = toExpenseDate(startDate);
       }
       if (endDate) {
-        dateQuery.$lte = parseUTCDate(endDate);
+        dateQuery.$lte = toExpenseDate(endDate);
       }
     }
 

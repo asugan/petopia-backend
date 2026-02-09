@@ -1,4 +1,5 @@
 import { Document, Types } from 'mongoose';
+import type { DayOfWeek } from '../../lib/feedingDays';
 import { SupportedCurrency } from '../../lib/constants';
 
 export type HealthRecordType =
@@ -97,7 +98,7 @@ export interface IFeedingScheduleDocument extends Document {
   time: string;
   foodType: string;
   amount: string;
-  days: string;
+  days: DayOfWeek[];
   isActive: boolean;
   // Notification fields
   remindersEnabled?: boolean;

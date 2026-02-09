@@ -168,8 +168,9 @@ export class UserBudgetService {
 
     budget.currency = baseCurrency;
 
-    const { start: startDate, end: endDate } = getCurrentUTCMonthRange();
-    const { start: prevStartDate, end: prevEndDate } = getPreviousUTCMonthRange();
+    const referenceDate = new Date();
+    const { start: startDate, end: endDate } = getCurrentUTCMonthRange(referenceDate);
+    const { start: prevStartDate, end: prevEndDate } = getPreviousUTCMonthRange(referenceDate);
 
     // Get all expenses for the user in current month (use amountBase for multi-currency support)
     const monthlyExpenses = await ExpenseModel.aggregate<MonthlyExpenseAggregate>([

@@ -1,8 +1,13 @@
 import { formatInTimeZone, fromZonedTime, toZonedTime } from 'date-fns-tz';
 
+function normalizeDays(days: string | string[]): string[] {
+  const raw = Array.isArray(days) ? days : days.split(',');
+  return raw.map((day) => day.trim().toLowerCase()).filter(Boolean);
+}
+
 export function calculateNextFeedingTime(
   time: string,
-  days: string,
+  days: string | string[],
   timezone: string,
   now: Date = new Date()
 ): Date | null {
@@ -21,7 +26,7 @@ export function calculateNextFeedingTime(
     'saturday',
   ];
 
-  const normalizedDays = days.toLowerCase();
+  const normalizedDays = normalizeDays(days);
   const nowInTimezone = toZonedTime(now, timezone);
   const todayName = dayNames[nowInTimezone.getDay()] ?? 'sunday';
 

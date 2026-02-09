@@ -19,6 +19,7 @@
     "db:migrate-remove-health-record-legacy-fields": "node scripts/migrate-remove-health-record-legacy-fields.cjs",
     "db:migrate-remove-expense-legacy-fields": "node scripts/migrate-remove-expense-legacy-fields.cjs",
     "db:migrate-sync-feeding-reminders": "node scripts/migrate-sync-feeding-reminders.cjs",
+    "db:migrate-feeding-days-to-array": "node scripts/migrate-feeding-days-to-array.cjs",
     "db:migrate-from-f62b6ed-chain": "node scripts/migrate-from-f62b6ed-chain.cjs",
     "test": "vitest",
     "test:ui": "vitest --ui",

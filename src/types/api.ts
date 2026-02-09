@@ -118,7 +118,7 @@ export interface CreateFeedingScheduleRequest {
   time: string;
   foodType: string;
   amount: string;
-  days: string;
+  days: string | string[];
   isActive?: boolean;
   remindersEnabled?: boolean;
   reminderMinutesBefore?: number;
@@ -128,7 +128,7 @@ export interface UpdateFeedingScheduleRequest {
   time?: string;
   foodType?: string;
   amount?: string;
-  days?: string;
+  days?: string | string[];
   isActive?: boolean;
   remindersEnabled?: boolean;
   reminderMinutesBefore?: number;
@@ -195,8 +195,8 @@ export interface UpdateExpenseRequest {
 
 export interface ExpenseQueryParams extends PaginationParams {
   category?: string;
-  startDate?: string;
-  endDate?: string;
+  startDate?: string | Date;
+  endDate?: string | Date;
   minAmount?: number;
   maxAmount?: number;
   currency?: string;

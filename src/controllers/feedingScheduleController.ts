@@ -17,6 +17,7 @@ import { SubscriptionService } from '../services/subscriptionService';
 import { feedingReminderService } from '../services/feedingReminderService';
 import { toString } from '../utils/express-utils';
 import { logger } from '../utils/logger';
+import { normalizeFeedingDaysInput } from '../lib/feedingDays';
 
 export class FeedingScheduleController {
   private feedingScheduleService: FeedingScheduleService;
@@ -118,7 +119,7 @@ export class FeedingScheduleController {
         !scheduleData.time ||
         !scheduleData.foodType ||
         !scheduleData.amount ||
-        !scheduleData.days
+        normalizeFeedingDaysInput(scheduleData.days).length === 0
       ) {
         throw createError(
           'Pet ID, time, food type, amount, and days are required',

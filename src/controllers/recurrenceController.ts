@@ -9,12 +9,30 @@ import {
 } from '../types/api';
 import { createError } from '../middleware/errorHandler';
 import { toString } from '../utils/express-utils';
+import { parseUTCDate } from '../lib/dateUtils';
+import { isValidTimezone } from '../lib/timezone';
 
 export class RecurrenceController {
   private recurrenceService: RecurrenceService;
 
   constructor() {
     this.recurrenceService = new RecurrenceService();
+  }
+
+  private assertValidTimezonePayload(
+    payload: { timezone?: string },
+    options?: { required?: boolean }
+  ): void {
+    const required = options?.required ?? false;
+    const timezone = payload.timezone?.trim();
+
+    if (required && !timezone) {
+      throw createError('Timezone is required', 400, 'MISSING_TIMEZONE');
+    }
+
+    if (timezone && !isValidTimezone(timezone)) {
+      throw createError('Invalid IANA timezone identifier', 400, 'INVALID_TIMEZONE');
+    }
   }
 
   // GET /api/recurrence-rules - Get all recurrence rules for authenticated user
@@ -92,6 +110,8 @@ export class RecurrenceController {
         );
       }
 
+      this.assertValidTimezonePayload(data, { required: true });
+
       const { rule, eventsCreated } = await this.recurrenceService.createRule(userId, data);
 
       successResponse(res, { rule, eventsCreated }, 201);
@@ -114,6 +134,8 @@ export class RecurrenceController {
       if (!id) {
         throw createError('Recurrence rule ID is required', 400, 'MISSING_ID');
       }
+
+      this.assertValidTimezonePayload(data);
 
       const { rule, eventsUpdated } = await this.recurrenceService.updateRule(userId, id, data);
 
@@ -218,7 +240,11 @@ export class RecurrenceController {
         throw createError('Recurrence rule ID and date are required', 400, 'MISSING_FIELDS');
       }
 
-      const success = await this.recurrenceService.addException(userId, id, new Date(date));
+      const success = await this.recurrenceService.addException(
+        userId,
+        id,
+        parseUTCDate(date)
+      );
 
       if (!success) {
         throw createError('Failed to add exception or rule not found', 404, 'EXCEPTION_FAILED');

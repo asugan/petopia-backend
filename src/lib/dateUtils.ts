@@ -6,6 +6,16 @@ export interface UTCDateRange {
   end: Date;
 }
 
+const DATE_ONLY_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+const DATETIME_PREFIX_REGEX = /^\d{4}-\d{2}-\d{2}T/;
+const TIMEZONE_SUFFIX_REGEX = /(Z|[+-]\d{2}(?::?\d{2})?)$/;
+const TIMEZONE_LESS_DATETIME_REGEX =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?$/;
+
+function normalizeHourOnlyOffset(dateTime: string): string {
+  return dateTime.replace(/([+-]\d{2})$/, '$1:00');
+}
+
 /**
  * Backend date utilities for consistent UTC handling
  *
@@ -25,10 +35,12 @@ export function parseUTCDate(dateString: string): Date {
   }
 
   let normalized = value;
-  if (/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+  if (DATE_ONLY_REGEX.test(normalized)) {
     normalized = `${normalized}T00:00:00.000Z`;
-  } else if (/^\d{4}-\d{2}-\d{2}T/.test(normalized) && !/(Z|[+-]\d{2}:\d{2})$/.test(normalized)) {
+  } else if (DATETIME_PREFIX_REGEX.test(normalized) && !TIMEZONE_SUFFIX_REGEX.test(normalized)) {
     normalized = `${normalized}Z`;
+  } else if (DATETIME_PREFIX_REGEX.test(normalized) && /[+-]\d{2}$/.test(normalized)) {
+    normalized = normalizeHourOnlyOffset(normalized);
   }
 
   const parsed = new Date(normalized);
@@ -111,17 +123,13 @@ export function dateJSONReplacer(key: string, value: unknown): unknown {
   }
 
   // Handle date-only fields - check if it's a date-only string without time
-  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+  if (typeof value === 'string' && DATE_ONLY_REGEX.test(value)) {
     // Return as-is for date-only fields (no timezone info)
     return value;
   }
 
-  // Handle ISO date strings that might not be in UTC
-  if (
-    typeof value === 'string' &&
-    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value) &&
-    !/(Z|[+-]\d{2}:\d{2})$/.test(value)
-  ) {
+  // Normalize only timezone-less datetime strings. Keep timezone-aware values unchanged.
+  if (typeof value === 'string' && TIMEZONE_LESS_DATETIME_REGEX.test(value)) {
     return toUTCISOString(new Date(`${value}Z`));
   }
 

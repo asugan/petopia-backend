@@ -355,6 +355,73 @@ describe('EventController', () => {
         'America/New_York'
       );
     });
+
+    it('should fallback to X-Timezone header when query timezone is absent', async () => {
+      const mockDate = '2025-01-15';
+
+      (controller.eventService as any).getEventsByDate = vi.fn().mockResolvedValue({
+        events: [],
+        total: 0,
+      });
+
+      const req = mockRequest({
+        params: { date: mockDate },
+        headers: { 'x-timezone': 'Asia/Tokyo' },
+      });
+      const res = mockResponse();
+
+      await controller.getEventsByDate(req, res, mockNext);
+
+      expect(controller.eventService.getEventsByDate).toHaveBeenCalledWith(
+        mockUserId,
+        mockDate,
+        expect.any(Object),
+        'Asia/Tokyo'
+      );
+    });
+
+    it('should prioritize query timezone over X-Timezone header', async () => {
+      const mockDate = '2025-01-15';
+
+      (controller.eventService as any).getEventsByDate = vi.fn().mockResolvedValue({
+        events: [],
+        total: 0,
+      });
+
+      const req = mockRequest({
+        params: { date: mockDate },
+        query: { timezone: 'Europe/Istanbul' },
+        headers: { 'x-timezone': 'America/New_York' },
+      });
+      const res = mockResponse();
+
+      await controller.getEventsByDate(req, res, mockNext);
+
+      expect(controller.eventService.getEventsByDate).toHaveBeenCalledWith(
+        mockUserId,
+        mockDate,
+        expect.any(Object),
+        'Europe/Istanbul'
+      );
+    });
+
+    it('should reject invalid timezone from X-Timezone header', async () => {
+      const mockDate = '2025-01-15';
+      const req = mockRequest({
+        params: { date: mockDate },
+        headers: { 'x-timezone': 'Invalid/Timezone' },
+      });
+      const res = mockResponse();
+
+      await controller.getEventsByDate(req, res, mockNext);
+
+      expect(mockNext).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: 'INVALID_TIMEZONE',
+          statusCode: 400,
+        })
+      );
+    });
   });
 
   describe('getEventById', () => {
@@ -1015,6 +1082,25 @@ describe('EventController', () => {
       );
     });
 
+    it('should read timezone from X-Timezone header for upcoming events', async () => {
+      (controller.eventService as any).getUpcomingEvents = vi.fn().mockResolvedValue([]);
+
+      const req = mockRequest({
+        query: {},
+        headers: { 'x-timezone': 'Asia/Tokyo' },
+      });
+      const res = mockResponse();
+
+      await controller.getUpcomingEvents(req, res, mockNext);
+
+      expect(controller.eventService.getUpcomingEvents).toHaveBeenCalledWith(
+        mockUserId,
+        undefined,
+        7,
+        'Asia/Tokyo'
+      );
+    });
+
     it('should throw error for invalid days parameter (NaN)', async () => {
       const req = mockRequest({ query: { days: 'invalid' } });
       const res = mockResponse();
@@ -1192,6 +1278,24 @@ describe('EventController', () => {
         mockUserId,
         '',
         'Asia/Tokyo'
+      );
+    });
+
+    it('should read timezone from X-Timezone header for today events', async () => {
+      (controller.eventService as any).getTodayEvents = vi.fn().mockResolvedValue([]);
+
+      const req = mockRequest({
+        query: {},
+        headers: { 'x-timezone': 'Europe/Berlin' },
+      });
+      const res = mockResponse();
+
+      await controller.getTodayEvents(req, res, mockNext);
+
+      expect(controller.eventService.getTodayEvents).toHaveBeenCalledWith(
+        mockUserId,
+        '',
+        'Europe/Berlin'
       );
     });
 

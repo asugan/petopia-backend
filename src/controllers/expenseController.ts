@@ -64,6 +64,30 @@ export class ExpenseController {
     }
   }
 
+  private parseRequiredUTCDateInput(value: string | undefined, field: string): Date {
+    if (!value) {
+      throw createError(`${field} is required`, 400, 'MISSING_REQUIRED_FIELDS');
+    }
+
+    try {
+      return parseUTCDate(value);
+    } catch {
+      throw createError(`${field} must be a valid UTC date`, 400, 'INVALID_DATE_BODY');
+    }
+  }
+
+  private parseOptionalUTCDateInput(value: string | undefined, field: string): Date | undefined {
+    if (!value) {
+      return undefined;
+    }
+
+    try {
+      return parseUTCDate(value);
+    } catch {
+      throw createError(`${field} must be a valid UTC date`, 400, 'INVALID_DATE_BODY');
+    }
+  }
+
   private parseOptionalNumberQuery(
     req: AuthenticatedRequest,
     key: string
@@ -99,8 +123,8 @@ export class ExpenseController {
           limit: String(limit),
         } as typeof req.query),
         category: this.getStringQueryValue(req, 'category'),
-        startDate: this.getStringQueryValue(req, 'startDate'),
-        endDate: this.getStringQueryValue(req, 'endDate'),
+        startDate: this.parseOptionalUTCDateQuery(req, 'startDate'),
+        endDate: this.parseOptionalUTCDateQuery(req, 'endDate'),
         minAmount: this.parseOptionalNumberQuery(req, 'minAmount'),
         maxAmount: this.parseOptionalNumberQuery(req, 'maxAmount'),
         currency: this.getStringQueryValue(req, 'currency'),
@@ -178,7 +202,7 @@ export class ExpenseController {
       // Convert date string to UTC Date object
       const convertedExpenseData = {
         ...expenseData,
-        date: parseUTCDate(expenseData.date),
+        date: this.parseRequiredUTCDateInput(expenseData.date, 'date'),
       };
 
       const expense = await this.expenseService.createExpense(
@@ -210,7 +234,7 @@ export class ExpenseController {
       // Convert date string to UTC Date object if provided
       const updateData: Partial<IExpenseDocument> = {
         ...updates,
-        date: updates.date ? parseUTCDate(updates.date) : undefined,
+        date: this.parseOptionalUTCDateInput(updates.date, 'date'),
       } as Partial<IExpenseDocument>;
 
       const expense = await this.expenseService.updateExpense(
