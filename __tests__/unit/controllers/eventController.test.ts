@@ -909,7 +909,8 @@ describe('EventController', () => {
       expect(controller.eventService.getUpcomingEvents).toHaveBeenCalledWith(
         mockUserId,
         mockPetId,
-        7
+        7,
+        ''
       );
     });
 
@@ -924,7 +925,8 @@ describe('EventController', () => {
       expect(controller.eventService.getUpcomingEvents).toHaveBeenCalledWith(
         mockUserId,
         undefined,
-        7
+        7,
+        ''
       );
     });
 
@@ -939,7 +941,8 @@ describe('EventController', () => {
       expect(controller.eventService.getUpcomingEvents).toHaveBeenCalledWith(
         mockUserId,
         undefined,
-        30
+        30,
+        ''
       );
     });
 
@@ -954,7 +957,8 @@ describe('EventController', () => {
       expect(controller.eventService.getUpcomingEvents).toHaveBeenCalledWith(
         mockUserId,
         undefined,
-        1
+        1,
+        ''
       );
     });
 
@@ -969,7 +973,45 @@ describe('EventController', () => {
       expect(controller.eventService.getUpcomingEvents).toHaveBeenCalledWith(
         mockUserId,
         undefined,
-        365
+        365,
+        ''
+      );
+    });
+
+    it('should pass timezone query to upcoming service call', async () => {
+      (controller.eventService as any).getUpcomingEvents = vi.fn().mockResolvedValue([]);
+
+      const req = mockRequest({
+        query: { timezone: 'Europe/Istanbul' },
+      });
+      const res = mockResponse();
+
+      await controller.getUpcomingEvents(req, res, mockNext);
+
+      expect(controller.eventService.getUpcomingEvents).toHaveBeenCalledWith(
+        mockUserId,
+        undefined,
+        7,
+        'Europe/Istanbul'
+      );
+    });
+
+    it('should read timezone from validatedQuery for upcoming events', async () => {
+      (controller.eventService as any).getUpcomingEvents = vi.fn().mockResolvedValue([]);
+
+      const req = mockRequest({
+        query: {},
+        validatedQuery: { timezone: 'America/New_York' },
+      });
+      const res = mockResponse();
+
+      await controller.getUpcomingEvents(req, res, mockNext);
+
+      expect(controller.eventService.getUpcomingEvents).toHaveBeenCalledWith(
+        mockUserId,
+        undefined,
+        7,
+        'America/New_York'
       );
     });
 
@@ -1081,7 +1123,11 @@ describe('EventController', () => {
 
       await controller.getTodayEvents(req, res, mockNext);
 
-      expect(controller.eventService.getTodayEvents).toHaveBeenCalledWith(mockUserId, mockPetId);
+      expect(controller.eventService.getTodayEvents).toHaveBeenCalledWith(
+        mockUserId,
+        mockPetId,
+        ''
+      );
     });
 
     it('should handle empty string petId as undefined', async () => {
@@ -1094,7 +1140,11 @@ describe('EventController', () => {
 
       await controller.getTodayEvents(req, res, mockNext);
 
-      expect(controller.eventService.getTodayEvents).toHaveBeenCalledWith(mockUserId, '');
+      expect(controller.eventService.getTodayEvents).toHaveBeenCalledWith(
+        mockUserId,
+        '',
+        ''
+      );
     });
 
     it('should handle undefined petId', async () => {
@@ -1105,7 +1155,44 @@ describe('EventController', () => {
 
       await controller.getTodayEvents(req, res, mockNext);
 
-      expect(controller.eventService.getTodayEvents).toHaveBeenCalledWith(mockUserId, '');
+      expect(controller.eventService.getTodayEvents).toHaveBeenCalledWith(
+        mockUserId,
+        '',
+        ''
+      );
+    });
+
+    it('should pass timezone query to today service call', async () => {
+      (controller.eventService as any).getTodayEvents = vi.fn().mockResolvedValue([]);
+
+      const req = mockRequest({ query: { timezone: 'Europe/Istanbul' } });
+      const res = mockResponse();
+
+      await controller.getTodayEvents(req, res, mockNext);
+
+      expect(controller.eventService.getTodayEvents).toHaveBeenCalledWith(
+        mockUserId,
+        '',
+        'Europe/Istanbul'
+      );
+    });
+
+    it('should read timezone from validatedQuery for today events', async () => {
+      (controller.eventService as any).getTodayEvents = vi.fn().mockResolvedValue([]);
+
+      const req = mockRequest({
+        query: {},
+        validatedQuery: { timezone: 'Asia/Tokyo' },
+      });
+      const res = mockResponse();
+
+      await controller.getTodayEvents(req, res, mockNext);
+
+      expect(controller.eventService.getTodayEvents).toHaveBeenCalledWith(
+        mockUserId,
+        '',
+        'Asia/Tokyo'
+      );
     });
 
     it('should handle service errors gracefully', async () => {

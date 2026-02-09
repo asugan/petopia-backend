@@ -57,9 +57,17 @@ const timezoneQuerySchema = z.object({
 });
 
 // Routes
-router.get('/upcoming', eventController.getUpcomingEvents);
+router.get(
+  '/upcoming',
+  validateRequest(timezoneQuerySchema, 'query'),
+  eventController.getUpcomingEvents
+);
 
-router.get('/today', eventController.getTodayEvents);
+router.get(
+  '/today',
+  validateRequest(timezoneQuerySchema, 'query'),
+  eventController.getTodayEvents
+);
 
 router.get(
   '/calendar/:date',

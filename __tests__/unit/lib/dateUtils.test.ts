@@ -121,6 +121,46 @@ describe('getUTCDateRangeForLocalDate', () => {
         expect(durationHours).toBe(24);
       }
     });
+
+    it('should return 23 hours on Europe/Berlin DST start day', () => {
+      const { start, end } = getUTCDateRangeForLocalDate(
+        '2026-03-29',
+        'Europe/Berlin'
+      );
+
+      const durationHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+      expect(durationHours).toBe(23);
+    });
+
+    it('should return 25 hours on Europe/Berlin DST end day', () => {
+      const { start, end } = getUTCDateRangeForLocalDate(
+        '2026-10-25',
+        'Europe/Berlin'
+      );
+
+      const durationHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+      expect(durationHours).toBe(25);
+    });
+
+    it('should return 23 hours on America/New_York DST start day', () => {
+      const { start, end } = getUTCDateRangeForLocalDate(
+        '2026-03-08',
+        'America/New_York'
+      );
+
+      const durationHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+      expect(durationHours).toBe(23);
+    });
+
+    it('should return 25 hours on America/New_York DST end day', () => {
+      const { start, end } = getUTCDateRangeForLocalDate(
+        '2026-11-01',
+        'America/New_York'
+      );
+
+      const durationHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+      expect(durationHours).toBe(25);
+    });
   });
 
   describe('Bug reproduction: Calendar event appearing on wrong day', () => {

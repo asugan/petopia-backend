@@ -86,7 +86,7 @@ function applyTimeToDateInTimezone(
   const minutesHuman = String(minutes).padStart(2, '0');
 
   return fromZonedTime(
-    `${year}-${monthHuman}-${dayHuman} ${hoursHuman}:${minutesHuman}:00`,
+    `${year}-${monthHuman}-${dayHuman}T${hoursHuman}:${minutesHuman}:00`,
     timezone
   );
 }
@@ -101,7 +101,7 @@ function normalizeRecurrenceEndDateExclusiveUTC(
       Date.UTC(Number(yearStr), Number(monthStr) - 1, Number(dayStr) + 1)
     );
     const nextDateStr = formatInTimeZone(nextDate, 'UTC', 'yyyy-MM-dd');
-    return fromZonedTime(`${nextDateStr} 00:00:00`, timezone);
+    return fromZonedTime(`${nextDateStr}T00:00:00`, timezone);
   }
 
   const parsed = parseUTCDate(endDateInput);
@@ -111,7 +111,7 @@ function normalizeRecurrenceEndDateExclusiveUTC(
     Date.UTC(Number(yearStr), Number(monthStr) - 1, Number(dayStr) + 1)
   );
   const nextDateStr = formatInTimeZone(nextDate, 'UTC', 'yyyy-MM-dd');
-  return fromZonedTime(`${nextDateStr} 00:00:00`, timezone);
+  return fromZonedTime(`${nextDateStr}T00:00:00`, timezone);
 }
 
 /**

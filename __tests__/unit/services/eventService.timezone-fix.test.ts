@@ -241,4 +241,124 @@ describe('EventService - Timezone Empty String Fix', () => {
       expect(query.startTime.$gte.toISOString()).toBe('2026-02-04T00:00:00.000Z');
     });
   });
+
+  describe('Timezone precedence for today/upcoming endpoints', () => {
+    it('should prioritize client timezone for getTodayEvents', async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-02-04T12:00:00.000Z'));
+
+      (UserSettingsModel.findOne as any).mockReturnValue({
+        select: vi.fn().mockReturnThis(),
+        lean: vi.fn().mockReturnThis(),
+        exec: vi.fn().mockResolvedValue({ timezone: 'UTC' }),
+      });
+
+      (EventModel.find as any).mockReturnValue({
+        sort: vi.fn().mockReturnThis(),
+        exec: vi.fn().mockResolvedValue([]),
+      });
+
+      await eventService.getTodayEvents(mockUserId, undefined, 'Europe/Istanbul');
+
+      const query = (EventModel.find as any).mock.calls[0][0];
+      expect(query.startTime.$gte.toISOString()).toBe('2026-02-03T21:00:00.000Z');
+
+      vi.useRealTimers();
+    });
+
+    it('should fallback to user settings for getUpcomingEvents when client timezone is empty', async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-02-04T12:00:00.000Z'));
+
+      (UserSettingsModel.findOne as any).mockReturnValue({
+        select: vi.fn().mockReturnThis(),
+        lean: vi.fn().mockReturnThis(),
+        exec: vi.fn().mockResolvedValue({ timezone: 'America/New_York' }),
+      });
+
+      (EventModel.find as any).mockReturnValue({
+        sort: vi.fn().mockReturnThis(),
+        exec: vi.fn().mockResolvedValue([]),
+      });
+
+      await eventService.getUpcomingEvents(mockUserId, undefined, 1, '   ');
+
+      const query = (EventModel.find as any).mock.calls[0][0];
+      expect(query.startTime.$lte.toISOString()).toBe('2026-02-06T04:59:59.999Z');
+
+      vi.useRealTimers();
+    });
+
+    it('should fallback to UTC for today when client and user timezones are invalid', async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-02-04T12:00:00.000Z'));
+
+      (UserSettingsModel.findOne as any).mockReturnValue({
+        select: vi.fn().mockReturnThis(),
+        lean: vi.fn().mockReturnThis(),
+        exec: vi.fn().mockResolvedValue({ timezone: 'Invalid/Timezone' }),
+      });
+
+      (EventModel.find as any).mockReturnValue({
+        sort: vi.fn().mockReturnThis(),
+        exec: vi.fn().mockResolvedValue([]),
+      });
+
+      await eventService.getTodayEvents(mockUserId, undefined, '   ');
+
+      const query = (EventModel.find as any).mock.calls[0][0];
+      expect(query.startTime.$gte.toISOString()).toBe('2026-02-04T00:00:00.000Z');
+      expect(query.startTime.$lte.toISOString()).toBe('2026-02-04T23:59:59.999Z');
+
+      vi.useRealTimers();
+    });
+
+    it('should compute DST boundary for Europe/Berlin on DST start day', async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-03-29T10:00:00.000Z'));
+
+      (UserSettingsModel.findOne as any).mockReturnValue({
+        select: vi.fn().mockReturnThis(),
+        lean: vi.fn().mockReturnThis(),
+        exec: vi.fn().mockResolvedValue({ timezone: 'UTC' }),
+      });
+
+      (EventModel.find as any).mockReturnValue({
+        sort: vi.fn().mockReturnThis(),
+        exec: vi.fn().mockResolvedValue([]),
+      });
+
+      await eventService.getTodayEvents(mockUserId, undefined, 'Europe/Berlin');
+
+      const query = (EventModel.find as any).mock.calls[0][0];
+      expect(query.startTime.$gte.toISOString()).toBe('2026-03-28T23:00:00.000Z');
+      expect(query.startTime.$lte.toISOString()).toBe('2026-03-29T21:59:59.999Z');
+
+      vi.useRealTimers();
+    });
+
+    it('should compute DST boundary for America/New_York on DST start day', async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-03-08T12:00:00.000Z'));
+
+      (UserSettingsModel.findOne as any).mockReturnValue({
+        select: vi.fn().mockReturnThis(),
+        lean: vi.fn().mockReturnThis(),
+        exec: vi.fn().mockResolvedValue({ timezone: 'UTC' }),
+      });
+
+      (EventModel.find as any).mockReturnValue({
+        sort: vi.fn().mockReturnThis(),
+        exec: vi.fn().mockResolvedValue([]),
+      });
+
+      await eventService.getTodayEvents(mockUserId, undefined, 'America/New_York');
+
+      const query = (EventModel.find as any).mock.calls[0][0];
+      expect(query.startTime.$gte.toISOString()).toBe('2026-03-08T05:00:00.000Z');
+      expect(query.startTime.$lte.toISOString()).toBe('2026-03-09T03:59:59.999Z');
+
+      vi.useRealTimers();
+    });
+  });
 });

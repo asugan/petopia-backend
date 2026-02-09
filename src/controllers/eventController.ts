@@ -242,6 +242,10 @@ export class EventController {
     try {
       const userId = requireAuth(req);
       const petId = req.query.petId as string;
+      const timezone = toString(
+        (req.validatedQuery as { timezone?: string })?.timezone ??
+          (req.query.timezone as string | string[] | undefined)
+      );
 
       // Parse and validate days parameter
       const daysParam = req.query.days;
@@ -276,7 +280,8 @@ export class EventController {
       const events = await this.eventService.getUpcomingEvents(
         userId,
         petId,
-        days
+        days,
+        timezone
       );
       successResponse(res, events);
     } catch (error) {
@@ -293,7 +298,15 @@ export class EventController {
     try {
       const userId = requireAuth(req);
       const petId = toString(req.query.petId as string | string[] | undefined);
-      const events = await this.eventService.getTodayEvents(userId, petId);
+      const timezone = toString(
+        (req.validatedQuery as { timezone?: string })?.timezone ??
+          (req.query.timezone as string | string[] | undefined)
+      );
+      const events = await this.eventService.getTodayEvents(
+        userId,
+        petId,
+        timezone
+      );
       successResponse(res, events);
     } catch (error) {
       next(error);

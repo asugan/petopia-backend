@@ -220,7 +220,8 @@ export class EventService {
   async getUpcomingEvents(
     userId: string,
     petId?: string,
-    days = 7
+    days = 7,
+    clientTimezone?: string
   ): Promise<HydratedDocument<IEventDocument>[]> {
     // Parameter validation
     if (days < 1) {
@@ -237,7 +238,10 @@ export class EventService {
 
     const boundaries = getUTCUpcomingBoundariesForTimeZone(
       days,
-      resolveEffectiveTimezone({ userTimezone: settings?.timezone })
+      resolveEffectiveTimezone({
+        clientTimezone,
+        userTimezone: settings?.timezone,
+      })
     );
 
     const whereClause: QueryFilter<IEventDocument> = {
@@ -261,14 +265,18 @@ export class EventService {
    */
   async getTodayEvents(
     userId: string,
-    petId?: string
+    petId?: string,
+    clientTimezone?: string
   ): Promise<HydratedDocument<IEventDocument>[]> {
     const settings = await UserSettingsModel.findOne({ userId })
       .select({ timezone: 1 })
       .lean()
       .exec();
     const todayBoundary = getUTCTodayBoundariesForTimeZone(
-      resolveEffectiveTimezone({ userTimezone: settings?.timezone })
+      resolveEffectiveTimezone({
+        clientTimezone,
+        userTimezone: settings?.timezone,
+      })
     );
 
     const whereClause: QueryFilter<IEventDocument> = {

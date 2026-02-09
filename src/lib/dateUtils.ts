@@ -212,12 +212,12 @@ export function getUTCDateRangeForLocalDate(
 
   const tz = resolveEffectiveTimezone({ userTimezone: timeZone });
 
-  const start = fromZonedTime(`${dateStr} 00:00:00`, tz);
+  const start = fromZonedTime(`${dateStr}T00:00:00`, tz);
 
   const [yearStr, monthStr, dayStr] = dateStr.split('-');
   const nextDate = new Date(Date.UTC(Number(yearStr), Number(monthStr) - 1, Number(dayStr) + 1));
   const nextDateStr = formatUTCDateString(nextDate);
-  const end = fromZonedTime(`${nextDateStr} 00:00:00`, tz);
+  const end = fromZonedTime(`${nextDateStr}T00:00:00`, tz);
 
   return { start, end };
 }
