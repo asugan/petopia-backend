@@ -26,7 +26,7 @@ export class ExpenseController {
   }
 
   private getQuerySource(req: AuthenticatedRequest): Record<string, unknown> {
-    return (req.validatedQuery ?? req.query) as Record<string, unknown>;
+    return req.validatedQuery ?? req.query;
   }
 
   private getStringQueryValue(req: AuthenticatedRequest, key: string): string | undefined {
@@ -51,14 +51,15 @@ export class ExpenseController {
   private parseOptionalUTCDateQuery(
     req: AuthenticatedRequest,
     key: string
-  ): Date | undefined {
+  ): string | undefined {
     const value = this.getStringQueryValue(req, key);
     if (!value) {
       return undefined;
     }
 
     try {
-      return parseUTCDate(value);
+      parseUTCDate(value, `expenseController.query.${key}`);
+      return value.trim();
     } catch {
       throw createError(`${key} must be a valid UTC date`, 400, 'INVALID_DATE_QUERY');
     }
@@ -70,7 +71,7 @@ export class ExpenseController {
     }
 
     try {
-      return parseUTCDate(value);
+      return parseUTCDate(value, `expenseController.body.${field}`);
     } catch {
       throw createError(`${field} must be a valid UTC date`, 400, 'INVALID_DATE_BODY');
     }
@@ -82,7 +83,7 @@ export class ExpenseController {
     }
 
     try {
-      return parseUTCDate(value);
+      return parseUTCDate(value, `expenseController.body.${field}`);
     } catch {
       throw createError(`${field} must be a valid UTC date`, 400, 'INVALID_DATE_BODY');
     }
@@ -347,11 +348,9 @@ export class ExpenseController {
       const userId = requireAuth(req);
       const petId = this.getStringQueryValue(req, 'petId');
       const yearValue = this.getStringQueryValue(req, 'year');
+      const monthValue = this.getStringQueryValue(req, 'month');
       const year = yearValue ? parseInt(yearValue, 10) : undefined;
-      const month =
-        this.getStringQueryValue(req, 'month') !== undefined
-          ? parseInt(this.getStringQueryValue(req, 'month') as string, 10)
-          : undefined;
+      const month = monthValue !== undefined ? parseInt(monthValue, 10) : undefined;
 
       const expenses = await this.expenseService.getMonthlyExpenses(
         userId,

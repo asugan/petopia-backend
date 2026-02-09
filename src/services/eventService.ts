@@ -12,6 +12,7 @@ import {
   getUTCTodayBoundariesForTimeZone,
   getUTCUpcomingBoundariesForTimeZone,
   parseUTCDate,
+  parseUTCRangeEndDate,
 } from '../lib/dateUtils';
 import { resolveEffectiveTimezone } from '../lib/timezone';
 
@@ -43,10 +44,10 @@ export class EventService {
     if (startDate || endDate) {
       whereClause.startTime = {};
       if (startDate) {
-        whereClause.startTime.$gte = parseUTCDate(startDate);
+        whereClause.startTime.$gte = parseUTCDate(startDate, 'eventService.getEvents.startDate');
       }
       if (endDate) {
-        whereClause.startTime.$lte = parseUTCDate(endDate);
+        whereClause.startTime.$lte = parseUTCRangeEndDate(endDate);
       }
     }
 

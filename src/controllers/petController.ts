@@ -108,7 +108,9 @@ export class PetController {
       // Convert string dates to UTC Date objects
       const convertedPetData: Partial<IPetDocument> = {
         ...petData,
-        birthDate: petData.birthDate ? parseUTCDate(petData.birthDate) : undefined,
+        birthDate: petData.birthDate
+          ? parseUTCDate(petData.birthDate, 'petController.createPet.birthDate')
+          : undefined,
       };
 
       const pet = await this.petService.createPet(
@@ -140,7 +142,11 @@ export class PetController {
       const convertedUpdates: Partial<IPetDocument> = {
         ...updates,
         birthDate: updates.birthDate !== undefined
-          ? (updates.birthDate ? parseUTCDate(updates.birthDate) : null)
+          ? (
+              updates.birthDate
+                ? parseUTCDate(updates.birthDate, 'petController.updatePet.birthDate')
+                : null
+            )
           : undefined,
       } as Partial<IPetDocument>;
 

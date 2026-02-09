@@ -49,8 +49,8 @@ export const SUBSCRIPTION_CONFIG = {
    */
   getTrialEndDate: (startDate: Date = new Date()): Date => {
     const endDate = new Date(startDate);
-    endDate.setDate(
-      endDate.getDate() + SUBSCRIPTION_CONFIG.TRIAL_DURATION_DAYS
+    endDate.setUTCDate(
+      endDate.getUTCDate() + SUBSCRIPTION_CONFIG.TRIAL_DURATION_DAYS
     );
     return endDate;
   },

@@ -122,7 +122,7 @@ export class ExchangeRateService {
       }).exec();
 
       const fetchedAt = new Date(fetchedAtDate);
-      fetchedAt.setHours(12, 0, 0, 0);
+      fetchedAt.setUTCHours(12, 0, 0, 0);
 
       if (existing) {
         existing.rates = rates;

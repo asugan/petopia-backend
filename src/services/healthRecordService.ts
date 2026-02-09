@@ -5,7 +5,7 @@ import {
   PetModel,
 } from '../models/mongoose';
 import type { HealthRecordQueryParams } from '../types/api';
-import { parseUTCDate } from '../lib/dateUtils';
+import { parseUTCDate, parseUTCRangeEndDate } from '../lib/dateUtils';
 
 export interface TreatmentPlanItem {
   name: string;
@@ -62,10 +62,10 @@ export class HealthRecordService {
     if (startDate || endDate) {
       whereClause.date = {};
       if (startDate) {
-        whereClause.date.$gte = parseUTCDate(startDate);
+        whereClause.date.$gte = parseUTCDate(startDate, 'healthRecordService.getHealthRecords.startDate');
       }
       if (endDate) {
-        whereClause.date.$lte = parseUTCDate(endDate);
+        whereClause.date.$lte = parseUTCRangeEndDate(endDate);
       }
     }
 

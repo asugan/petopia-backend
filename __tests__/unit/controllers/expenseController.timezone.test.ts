@@ -73,13 +73,19 @@ describe('ExpenseController timezone/date query flow', () => {
 
     await controller.getExpenseStats(req, mockResponse(), next);
 
-    expect(parseUTCDate).toHaveBeenCalledWith('2026-02-01T00:00:00.000Z');
-    expect(parseUTCDate).toHaveBeenCalledWith('2026-02-29T23:59:59.999Z');
+    expect(parseUTCDate).toHaveBeenCalledWith(
+      '2026-02-01T00:00:00.000Z',
+      'expenseController.query.startDate'
+    );
+    expect(parseUTCDate).toHaveBeenCalledWith(
+      '2026-02-29T23:59:59.999Z',
+      'expenseController.query.endDate'
+    );
     expect((controller as any).expenseService.getExpenseStats).toHaveBeenCalledWith(
       '507f1f77bcf86cd799439011',
       undefined,
-      new Date('2026-02-01T00:00:00.000Z'),
-      new Date('2026-02-29T23:59:59.999Z'),
+      '2026-02-01T00:00:00.000Z',
+      '2026-02-29T23:59:59.999Z',
       undefined
     );
   });
@@ -118,8 +124,8 @@ describe('ExpenseController timezone/date query flow', () => {
       '507f1f77bcf86cd799439011',
       '',
       expect.objectContaining({
-        startDate: new Date('2026-02-01T00:00:00.000Z'),
-        endDate: new Date('2026-02-29T23:59:59.999Z'),
+        startDate: '2026-02-01T00:00:00.000Z',
+        endDate: '2026-02-29T23:59:59.999Z',
       })
     );
   });

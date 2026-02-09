@@ -1,5 +1,6 @@
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import { resolveEffectiveTimezone } from './timezone';
+import { logger } from '../utils/logger';
 
 export interface UTCDateRange {
   start: Date;
@@ -28,7 +29,7 @@ function normalizeHourOnlyOffset(dateTime: string): string {
  * @param dateString - ISO date string (should be in UTC)
  * @returns Date object representing UTC time
  */
-export function parseUTCDate(dateString: string): Date {
+export function parseUTCDate(dateString: string, context?: string): Date {
   const value = dateString?.trim();
   if (!value) {
     throw new Error('Invalid date string');
@@ -38,6 +39,17 @@ export function parseUTCDate(dateString: string): Date {
   if (DATE_ONLY_REGEX.test(normalized)) {
     normalized = `${normalized}T00:00:00.000Z`;
   } else if (DATETIME_PREFIX_REGEX.test(normalized) && !TIMEZONE_SUFFIX_REGEX.test(normalized)) {
+    if (process.env.REJECT_TIMEZONE_LESS_DATETIME === 'true') {
+      const contextSuffix = context ? ` (context: ${context})` : '';
+      throw new Error(
+        `Timezone offset required for datetime value: ${dateString}${contextSuffix}`
+      );
+    }
+
+    const contextSuffix = context ? ` context=${context}` : '';
+    logger.warn(
+      `Timezone-less datetime coerced to UTC by appending Z. Consider sending explicit timezone offset. value=${dateString}${contextSuffix}`
+    );
     normalized = `${normalized}Z`;
   } else if (DATETIME_PREFIX_REGEX.test(normalized) && /[+-]\d{2}$/.test(normalized)) {
     normalized = normalizeHourOnlyOffset(normalized);
@@ -49,6 +61,23 @@ export function parseUTCDate(dateString: string): Date {
   }
 
   return parsed;
+}
+
+/**
+ * Parse end-date values for range queries.
+ * Date-only values are expanded to UTC end-of-day for inclusive filtering.
+ */
+export function parseUTCRangeEndDate(dateString: string): Date {
+  const value = dateString?.trim();
+  if (!value) {
+    throw new Error('Invalid date string');
+  }
+
+  if (DATE_ONLY_REGEX.test(value)) {
+    return new Date(`${value}T23:59:59.999Z`);
+  }
+
+  return parseUTCDate(value);
 }
 
 /**

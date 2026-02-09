@@ -101,7 +101,7 @@ function normalizeRecurrenceEndDateExclusiveUTC(
     return fromZonedTime(`${nextDateStr}T00:00:00`, timezone);
   }
 
-  const parsed = parseUTCDate(endDateInput);
+  const parsed = parseUTCDate(endDateInput, 'recurrenceService.normalizeRecurrenceEndDateExclusiveUTC.endDate');
   const localDate = formatInTimeZone(parsed, timezone, 'yyyy-MM-dd');
   const [yearStr, monthStr, dayStr] = localDate.split('-');
   const nextDate = new Date(
@@ -405,7 +405,7 @@ export class RecurrenceService {
       timesPerDay: data.timesPerDay,
       dailyTimes: data.dailyTimes,
       timezone: resolveEffectiveTimezone({ userTimezone: data.timezone }),
-      startDate: parseUTCDate(data.startDate),
+      startDate: parseUTCDate(data.startDate, 'recurrenceService.createRule.startDate'),
       endDate: data.endDate
         ? normalizeRecurrenceEndDateExclusiveUTC(
             data.endDate,
@@ -470,7 +470,7 @@ export class RecurrenceService {
       rule.timezone = resolveEffectiveTimezone({ userTimezone: data.timezone });
     }
     if (data.startDate !== undefined)
-      rule.startDate = parseUTCDate(data.startDate);
+      rule.startDate = parseUTCDate(data.startDate, 'recurrenceService.updateRule.startDate');
     if (data.endDate !== undefined)
       rule.endDate = data.endDate
         ? normalizeRecurrenceEndDateExclusiveUTC(data.endDate, rule.timezone)

@@ -110,7 +110,8 @@ export class WebhookController {
 
       // Calculate expiration date (RevenueCat provides milliseconds since epoch)
       const expiresAt = parseUTCDate(
-        new Date(event.expiration_at_ms).toISOString()
+        new Date(event.expiration_at_ms).toISOString(),
+        'webhookController.handleRevenueCatWebhook.expiration_at_ms'
       );
 
       // Create a unique RevenueCat ID from transaction

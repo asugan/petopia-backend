@@ -1,15 +1,17 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
+  dateJSONReplacer,
+  formatDateInTimeZone,
   getCurrentUTCMonthRange,
   getMonthRange,
   getPreviousUTCMonthRange,
+  getUTCDateRangeForLocalDate,
   getUTCMonthPeriodKey,
   getYearRange,
-  dateJSONReplacer,
-  formatDateInTimeZone,
-  getUTCDateRangeForLocalDate,
   parseUTCDate,
+  parseUTCRangeEndDate,
 } from '@/lib/dateUtils';
+import { logger } from '@/utils/logger';
 
 describe('getUTCDateRangeForLocalDate', () => {
   describe('Europe/Istanbul timezone (UTC+3)', () => {
@@ -236,6 +238,44 @@ describe('parseUTCDate', () => {
   it('parses ISO strings with hour-only UTC offset correctly', () => {
     const parsed = parseUTCDate('2026-02-04T10:00:00+03');
     expect(parsed.toISOString()).toBe('2026-02-04T07:00:00.000Z');
+  });
+
+  it('warns and coerces timezone-less datetime to UTC by default', () => {
+    const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => undefined);
+
+    const parsed = parseUTCDate('2026-02-04T10:00:00');
+
+    expect(parsed.toISOString()).toBe('2026-02-04T10:00:00.000Z');
+    expect(warnSpy).toHaveBeenCalledOnce();
+
+    warnSpy.mockRestore();
+  });
+
+  it('rejects timezone-less datetime when strict flag enabled', () => {
+    const previous = process.env.REJECT_TIMEZONE_LESS_DATETIME;
+    process.env.REJECT_TIMEZONE_LESS_DATETIME = 'true';
+
+    expect(() => parseUTCDate('2026-02-04T10:00:00')).toThrow(
+      'Timezone offset required for datetime value'
+    );
+
+    if (previous === undefined) {
+      delete process.env.REJECT_TIMEZONE_LESS_DATETIME;
+    } else {
+      process.env.REJECT_TIMEZONE_LESS_DATETIME = previous;
+    }
+  });
+});
+
+describe('parseUTCRangeEndDate', () => {
+  it('expands date-only values to end-of-day UTC', () => {
+    const parsed = parseUTCRangeEndDate('2026-02-09');
+    expect(parsed.toISOString()).toBe('2026-02-09T23:59:59.999Z');
+  });
+
+  it('keeps timezone-aware datetime precision', () => {
+    const parsed = parseUTCRangeEndDate('2026-02-09T10:30:00+03:00');
+    expect(parsed.toISOString()).toBe('2026-02-09T07:30:00.000Z');
   });
 });
 

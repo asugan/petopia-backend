@@ -181,7 +181,7 @@ export class EventController {
       // Convert string dates to UTC Date objects
       const convertedEventData = {
         ...eventData,
-        startTime: parseUTCDate(eventData.startTime),
+        startTime: parseUTCDate(eventData.startTime, 'eventController.createEvent.startTime'),
       };
 
       const event = await this.eventService.createEvent(
@@ -213,7 +213,7 @@ export class EventController {
       const convertedUpdates: Partial<IEventDocument> = {
         ...updates,
         startTime: updates.startTime
-          ? parseUTCDate(updates.startTime)
+          ? parseUTCDate(updates.startTime, 'eventController.updateEvent.startTime')
           : undefined,
       } as Partial<IEventDocument>; // Cast needed for null vs undefined/optional
 

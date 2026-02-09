@@ -1,5 +1,6 @@
 import { Schema, model } from 'mongoose';
 import { IRecurrenceRuleDocument } from './types';
+import { isValidTimezone } from '../../lib/timezone';
 
 const recurrenceRuleSchema = new Schema<IRecurrenceRuleDocument>({
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
@@ -35,7 +36,15 @@ const recurrenceRuleSchema = new Schema<IRecurrenceRuleDocument>({
   dailyTimes: [String], // ["08:00", "14:00", "20:00"]
 
   // Timezone
-  timezone: { type: String, required: true, default: 'UTC' },
+  timezone: {
+    type: String,
+    required: true,
+    default: 'UTC',
+    validate: {
+      validator: (value: string) => isValidTimezone(value),
+      message: 'timezone must be a valid IANA timezone identifier',
+    },
+  },
 
   // Date boundaries
   startDate: { type: Date, required: true },

@@ -150,7 +150,7 @@ export class HealthRecordController {
 
       const convertedRecordData = {
         ...recordData,
-        date: parseUTCDate(recordData.date),
+        date: parseUTCDate(recordData.date, 'healthRecordController.createHealthRecord.date'),
       };
 
       const record = await this.healthRecordService.createHealthRecord(userId, convertedRecordData);
@@ -177,7 +177,9 @@ export class HealthRecordController {
 
       const convertedUpdates = {
         ...updates,
-        date: updates.date ? parseUTCDate(updates.date) : undefined,
+        date: updates.date
+          ? parseUTCDate(updates.date, 'healthRecordController.updateHealthRecord.date')
+          : undefined,
       };
 
       const record = await this.healthRecordService.updateHealthRecord(userId, id, convertedUpdates);

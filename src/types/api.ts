@@ -195,8 +195,8 @@ export interface UpdateExpenseRequest {
 
 export interface ExpenseQueryParams extends PaginationParams {
   category?: string;
-  startDate?: string | Date;
-  endDate?: string | Date;
+  startDate?: string;
+  endDate?: string;
   minAmount?: number;
   maxAmount?: number;
   currency?: string;
@@ -244,8 +244,8 @@ export interface UserBudget {
   currency: string;
   alertThreshold: number;
   isActive: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface BudgetStatus {
@@ -290,8 +290,8 @@ export interface UserSettings {
     endHour: number;
     endMinute: number;
   };
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface UpdateUserSettingsRequest {

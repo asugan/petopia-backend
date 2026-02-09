@@ -9,9 +9,15 @@ import { isValidTimezone } from '../lib/timezone';
 const router = Router();
 const recurrenceController = new RecurrenceController();
 
+const isoDateTimeWithZoneRegex =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})$/;
+
 const dateOnlyOrDateTimeSchema = z.union([
   z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (expected YYYY-MM-DD)'),
-  z.string().datetime('Invalid date format'),
+  z.string().regex(
+    isoDateTimeWithZoneRegex,
+    'Invalid date format (datetime must include timezone offset or Z)'
+  ),
 ]);
 
 const requiredTimezoneSchema = z
@@ -70,7 +76,10 @@ const createRecurrenceRuleSchema = z.object({
   timezone: requiredTimezoneSchema,
 
   // Date boundaries
-  startDate: z.string().datetime('Invalid start date format'),
+  startDate: z.string().regex(
+    isoDateTimeWithZoneRegex,
+    'Invalid start date format (must include timezone offset or Z)'
+  ),
   endDate: dateOnlyOrDateTimeSchema.optional(),
 });
 
@@ -80,7 +89,10 @@ const updateRecurrenceRuleSchema = createRecurrenceRuleSchema.partial().extend({
 });
 
 const addExceptionSchema = z.object({
-  date: z.string().datetime('Invalid date format'),
+  date: z.string().regex(
+    isoDateTimeWithZoneRegex,
+    'Invalid date format (must include timezone offset or Z)'
+  ),
 });
 
 // Routes

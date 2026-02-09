@@ -1,6 +1,7 @@
 import { Schema, model } from 'mongoose';
 import { IUserSettingsDocument } from './types';
 import { SUPPORTED_CURRENCIES } from '../../lib/constants';
+import { isValidTimezone } from '../../lib/timezone';
 
 const defaultQuietHours = {
   startHour: 22,
@@ -29,6 +30,10 @@ const userSettingsSchema = new Schema<IUserSettingsDocument>(
     timezone: {
       type: String,
       default: 'UTC',
+      validate: {
+        validator: (value: string) => isValidTimezone(value),
+        message: 'timezone must be a valid IANA timezone identifier',
+      },
     },
     language: {
       type: String,

@@ -8,6 +8,9 @@ import { isValidTimezone } from '../lib/timezone';
 const router = Router({ mergeParams: true });
 const eventController = new EventController();
 
+const isoDateTimeWithZoneRegex =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})$/;
+
 // Validation schemas
 const createEventSchema = z.object({
   petId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid pet ID format'),
@@ -25,7 +28,10 @@ const createEventSchema = z.object({
     'medication',
     'other',
   ]),
-  startTime: z.string().datetime('Invalid start time format'),
+  startTime: z.string().regex(
+    isoDateTimeWithZoneRegex,
+    'Invalid start time format (must include timezone offset or Z)'
+  ),
   reminder: z.boolean().optional(),
   reminderPreset: z.enum(['standard', 'compact', 'minimal']).optional(),
   status: z.enum(['upcoming', 'completed', 'cancelled', 'missed']).optional(),

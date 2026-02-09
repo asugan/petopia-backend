@@ -4,7 +4,13 @@ import { ExpenseQueryParams } from '../types/api';
 import { ExchangeRateService } from './exchangeRateService';
 import { UserSettingsService } from './userSettingsService';
 import PDFDocument from 'pdfkit';
-import { getMonthRange, getYearRange, parseUTCDate, toUTCDateString } from '../lib/dateUtils';
+import {
+  getMonthRange,
+  getYearRange,
+  parseUTCDate,
+  parseUTCRangeEndDate,
+  toUTCDateString,
+} from '../lib/dateUtils';
 
 const exchangeRateService = new ExchangeRateService();
 const userSettingsService = new UserSettingsService();
@@ -25,7 +31,7 @@ function toExpenseDate(value: string | Date): Date {
     return value;
   }
 
-  return parseUTCDate(value);
+  return parseUTCDate(value, 'expenseService.toExpenseDate');
 }
 
 export class ExpenseService {
@@ -72,7 +78,7 @@ export class ExpenseService {
         dateQuery.$gte = toExpenseDate(startDate);
       }
       if (endDate) {
-        dateQuery.$lte = toExpenseDate(endDate);
+        dateQuery.$lte = parseUTCRangeEndDate(endDate);
       }
     }
 
@@ -203,12 +209,12 @@ export class ExpenseService {
   async getExpensesByDateRange(
     userId: string,
     petId: string | undefined,
-    startDate: Date,
-    endDate: Date
+    startDate: string,
+    endDate: string
   ): Promise<HydratedDocument<IExpenseDocument>[]> {
     return this.getExpensesByPetId(userId, petId, {
-      startDate: startDate.toISOString(),
-      endDate: endDate.toISOString(),
+      startDate,
+      endDate,
       page: 1,
       limit: 1000,
     }).then(result => result.expenses);
@@ -217,8 +223,8 @@ export class ExpenseService {
   async getExpenseStats(
     userId: string,
     petId?: string,
-    startDate?: Date,
-    endDate?: Date,
+    startDate?: string,
+    endDate?: string,
     category?: string
   ): Promise<{
     total: number;
@@ -238,10 +244,10 @@ export class ExpenseService {
       const dateQuery: { $gte?: Date; $lte?: Date } = {};
       whereClause.date = dateQuery;
       if (startDate) {
-        dateQuery.$gte = startDate;
+        dateQuery.$gte = parseUTCDate(startDate, 'expenseService.getExpenseStats.startDate');
       }
       if (endDate) {
-        dateQuery.$lte = endDate;
+        dateQuery.$lte = parseUTCRangeEndDate(endDate);
       }
     }
 
@@ -308,7 +314,7 @@ export class ExpenseService {
     const targetMonth = month ?? now.getUTCMonth() + 1;
     const { start, end } = getMonthRange(targetYear, targetMonth);
 
-    return this.getExpensesByDateRange(userId, petId, start, end);
+    return this.getExpensesByDateRange(userId, petId, start.toISOString(), end.toISOString());
   }
 
   async getYearlyExpenses(
@@ -320,7 +326,7 @@ export class ExpenseService {
     const targetYear = year ?? now.getUTCFullYear();
     const { start, end } = getYearRange(targetYear);
 
-    return this.getExpensesByDateRange(userId, petId, start, end);
+    return this.getExpensesByDateRange(userId, petId, start.toISOString(), end.toISOString());
   }
 
   async getExpensesByCategory(
@@ -338,8 +344,8 @@ export class ExpenseService {
   async exportExpensesCSV(
     userId: string,
     petId?: string,
-    startDate?: Date,
-    endDate?: Date
+    startDate?: string,
+    endDate?: string
   ): Promise<string> {
     const whereClause: ExpenseFilter = { userId: new Types.ObjectId(userId) };
  
@@ -351,10 +357,10 @@ export class ExpenseService {
       const dateQuery: { $gte?: Date; $lte?: Date } = {};
       whereClause.date = dateQuery;
       if (startDate) {
-        dateQuery.$gte = startDate;
+        dateQuery.$gte = parseUTCDate(startDate, 'expenseService.exportExpensesCSV.startDate');
       }
       if (endDate) {
-        dateQuery.$lte = endDate;
+        dateQuery.$lte = parseUTCRangeEndDate(endDate);
       }
     }
 
@@ -403,8 +409,8 @@ export class ExpenseService {
   async exportExpensesPDF(
     userId: string,
     petId?: string,
-    startDate?: Date,
-    endDate?: Date
+    startDate?: string,
+    endDate?: string
   ): Promise<Buffer> {
     const whereClause: ExpenseFilter = { userId: new Types.ObjectId(userId) };
  
@@ -416,10 +422,10 @@ export class ExpenseService {
       const dateQuery: { $gte?: Date; $lte?: Date } = {};
       whereClause.date = dateQuery;
       if (startDate) {
-        dateQuery.$gte = startDate;
+        dateQuery.$gte = parseUTCDate(startDate, 'expenseService.exportExpensesPDF.startDate');
       }
       if (endDate) {
-        dateQuery.$lte = endDate;
+        dateQuery.$lte = parseUTCRangeEndDate(endDate);
       }
     }
 
@@ -455,7 +461,7 @@ export class ExpenseService {
     doc
       .fontSize(10)
       .text(
-        `Date: ${new Date().toISOString()}${startDate || endDate ? ` | Range: ${startDate?.toISOString() ?? '-'} to ${endDate?.toISOString() ?? '-'}` : ''}`,
+        `Date: ${new Date().toISOString()}${startDate || endDate ? ` | Range: ${startDate ?? '-'} to ${endDate ?? '-'}` : ''}`,
         { align: 'center' }
       );
 

@@ -243,7 +243,7 @@ export class RecurrenceController {
       const success = await this.recurrenceService.addException(
         userId,
         id,
-        parseUTCDate(date)
+        parseUTCDate(date, 'recurrenceController.addException.date')
       );
 
       if (!success) {

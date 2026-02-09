@@ -8,6 +8,9 @@ import { validateObjectId } from '../utils/mongodb-validation';
 const router = Router({ mergeParams: true });
 const healthRecordController = new HealthRecordController();
 
+const isoDateTimeWithZoneRegex =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})$/;
+
 // Validation schemas
 const createHealthRecordSchema = z.object({
   petId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid pet ID format'),
@@ -20,7 +23,10 @@ const createHealthRecordSchema = z.object({
     'other',
   ]),
   title: z.string().min(1, 'Title is required'),
-  date: z.string().datetime('Invalid date format'),
+  date: z.string().regex(
+    isoDateTimeWithZoneRegex,
+    'Invalid date format (must include timezone offset or Z)'
+  ),
   attachments: z.string().optional(),
   treatmentPlan: z.array(z.object({
     name: z.string().min(1, 'Treatment name is required'),
