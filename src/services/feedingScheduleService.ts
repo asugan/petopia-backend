@@ -1,9 +1,36 @@
 import { HydratedDocument, QueryFilter, Types } from 'mongoose';
-import { FeedingScheduleModel, IFeedingScheduleDocument, PetModel } from '../models/mongoose';
+import { formatInTimeZone } from 'date-fns-tz';
+import { FeedingScheduleModel, IFeedingScheduleDocument, PetModel, UserSettingsModel } from '../models/mongoose';
 import { CreateFeedingScheduleRequest, FeedingScheduleQueryParams, UpdateFeedingScheduleRequest } from '../types/api';
-import { toUTCISOString } from '../lib/dateUtils';
 
 export class FeedingScheduleService {
+  private dayNames = [
+    'sunday',
+    'monday',
+    'tuesday',
+    'wednesday',
+    'thursday',
+    'friday',
+    'saturday',
+  ] as const;
+
+  private async resolveUserTimezone(userId: string): Promise<string> {
+    try {
+      const settings = await UserSettingsModel.findOne({ userId: new Types.ObjectId(userId) })
+        .select('timezone')
+        .lean()
+        .exec();
+      return settings?.timezone?.trim() || 'UTC';
+    } catch {
+      return 'UTC';
+    }
+  }
+
+  private getDayNameInTimezone(date: Date, timezone: string): string {
+    const dayIndex = Number(formatInTimeZone(date, timezone, 'i')) % 7;
+    return this.dayNames[dayIndex] ?? 'sunday';
+  }
+
   /**
    * Get feeding schedules for a user, optionally filtered by petId
    */
@@ -137,18 +164,8 @@ export class FeedingScheduleService {
     userId: string,
     petId?: string
   ): Promise<HydratedDocument<IFeedingScheduleDocument>[]> {
-    // Use UTC date to get consistent day regardless of server timezone
-    const today = new Date(toUTCISOString(new Date())).getUTCDay(); // 0 = Sunday, 1 = Monday, etc.
-    const dayNames = [
-      'sunday',
-      'monday',
-      'tuesday',
-      'wednesday',
-      'thursday',
-      'friday',
-      'saturday',
-    ];
-    const todayName = dayNames[today];
+    const timezone = await this.resolveUserTimezone(userId);
+    const todayName = this.getDayNameInTimezone(new Date(), timezone);
 
     const whereClause: QueryFilter<IFeedingScheduleDocument> = {
       userId: new Types.ObjectId(userId),
@@ -172,18 +189,8 @@ export class FeedingScheduleService {
     userId: string,
     petId?: string
   ): Promise<HydratedDocument<IFeedingScheduleDocument> | null> {
-    // Use UTC date to get consistent day regardless of server timezone
-    const today = new Date(toUTCISOString(new Date())).getUTCDay();
-    const dayNames = [
-      'sunday',
-      'monday',
-      'tuesday',
-      'wednesday',
-      'thursday',
-      'friday',
-      'saturday',
-    ];
-    const todayName = dayNames[today];
+    const timezone = await this.resolveUserTimezone(userId);
+    const todayName = this.getDayNameInTimezone(new Date(), timezone);
 
     const whereClause: QueryFilter<IFeedingScheduleDocument> = {
       userId: new Types.ObjectId(userId),
