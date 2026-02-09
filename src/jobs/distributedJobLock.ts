@@ -1,4 +1,4 @@
-import { type Model, Schema, model, models } from 'mongoose';
+import mongoose, { type Model, Schema } from 'mongoose';
 import { logger } from '../utils/logger.js';
 
 interface IDistributedJobLock {
@@ -23,8 +23,8 @@ const distributedJobLockSchema = new Schema<IDistributedJobLock>(
 );
 
 const DistributedJobLockModel =
-  (models.DistributedJobLock as Model<IDistributedJobLock> | undefined) ??
-  model<IDistributedJobLock>('DistributedJobLock', distributedJobLockSchema);
+  (mongoose.models.DistributedJobLock as Model<IDistributedJobLock> | undefined) ??
+  mongoose.model<IDistributedJobLock>('DistributedJobLock', distributedJobLockSchema);
 
 const DEFAULT_LOCK_TTL_MS = Math.max(
   60_000,
