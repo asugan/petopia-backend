@@ -21,6 +21,11 @@ const setUserBudgetSchema = z.object({
     .optional(),
 });
 
+const acknowledgeBudgetAlertSchema = z.object({
+  severity: z.enum(['warning', 'critical']),
+  percentage: z.number(),
+});
+
 // Apply authentication middleware to all routes
 router.use(authMiddleware);
 
@@ -41,5 +46,11 @@ router.delete('/', userBudgetController.deleteUserBudget);
 router.get('/status', userBudgetController.getBudgetStatus);
 // GET /alerts - Get budget alerts (with notification payload)
 router.get('/alerts', userBudgetController.checkBudgetAlerts);
+// POST /alerts/ack - Mark alert as dispatched/acknowledged
+router.post(
+  '/alerts/ack',
+  validateRequest(acknowledgeBudgetAlertSchema),
+  userBudgetController.acknowledgeBudgetAlert
+);
 
 export default router;

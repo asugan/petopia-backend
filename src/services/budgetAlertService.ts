@@ -6,6 +6,12 @@ import { ExpenseModel, UserSettingsModel } from '../models/mongoose/index.js';
 import { getBudgetAlertMessages } from '../config/notificationMessages.js';
 import { logger } from '../utils/logger.js';
 import { getCurrentUTCMonthRange, getUTCMonthPeriodKey } from '../lib/dateUtils.js';
+import {
+  NOTIFICATION_CHANNELS,
+  NOTIFICATION_ENTITY_TYPES,
+  NOTIFICATION_SCREENS,
+} from '../constants/notificationContract.js';
+import { DEFAULT_QUIET_HOURS, isInQuietHours } from '../lib/quietHours.js';
 
 // Cache for user languages to avoid repeated DB queries
 const userLanguageCache = new Map<string, string>();
@@ -61,12 +67,25 @@ export class BudgetAlertService {
       const currency = budget?.currency ?? 'USD';
       const remaining = budgetAmount - currentSpending;
 
+      const userSettings = await UserSettingsModel.findOne({
+        userId: new Types.ObjectId(userId),
+      })
+        .select('language timezone quietHoursEnabled quietHours')
+        .lean()
+        .exec();
+
+      const userTimezone = userSettings?.timezone ?? 'UTC';
+      const quietHoursEnabled = userSettings?.quietHoursEnabled ?? true;
+      const quietHours = userSettings?.quietHours ?? DEFAULT_QUIET_HOURS;
+
+      if (quietHoursEnabled && isInQuietHours(new Date(), userTimezone, quietHours)) {
+        logger.info(`Budget alert for user ${userId} deferred due to quiet hours`);
+        return { userId, success: true, sentCount: 0 };
+      }
+
       // Get user's language preference
       let userLanguage = userLanguageCache.get(userId);
       if (userLanguage === undefined) {
-        const userSettings = await UserSettingsModel.findOne({
-          userId: new Types.ObjectId(userId),
-        }).select('language').lean().exec();
         userLanguage = userSettings?.language ?? 'en';
         userLanguageCache.set(userId, userLanguage);
       }
@@ -97,13 +116,15 @@ export class BudgetAlertService {
         body,
         data: {
           type: 'budget_alert',
-          screen: 'finance',
+          screen: NOTIFICATION_SCREENS.budget,
+          entityType: NOTIFICATION_ENTITY_TYPES.budget,
+          entityId: budget?._id.toString() ?? '',
           percentage: percentage.toString(),
           severity,
         },
         sound: 'default',
         priority: 'high',
-        channelId: 'budget-alerts',
+        channelId: NOTIFICATION_CHANNELS.budget,
       });
 
       let sentCount = 0;
@@ -162,6 +183,26 @@ export class BudgetAlertService {
       try {
         const userId = budget.userId.toString();
 
+        const userSettings = await UserSettingsModel.findOne({
+          userId: budget.userId,
+        })
+          .select('notificationsEnabled budgetNotificationsEnabled timezone quietHoursEnabled quietHours')
+          .lean()
+          .exec();
+
+        if (!userSettings?.notificationsEnabled || !userSettings?.budgetNotificationsEnabled) {
+          processed++;
+          continue;
+        }
+
+        const userTimezone = userSettings?.timezone ?? 'UTC';
+        const quietHoursEnabled = userSettings?.quietHoursEnabled ?? true;
+        const quietHours = userSettings?.quietHours ?? DEFAULT_QUIET_HOURS;
+        if (quietHoursEnabled && isInQuietHours(referenceDate, userTimezone, quietHours)) {
+          processed++;
+          continue;
+        }
+
         // Use upsert-like pattern: check and update atomically
         // This prevents duplicate alerts from concurrent job runs
         const budgetDoc = await UserBudgetModel.findById(budget._id).exec();
@@ -216,17 +257,15 @@ export class BudgetAlertService {
           severity
         );
 
-        // Update budget with alert info atomically
-        await UserBudgetModel.findByIdAndUpdate(budget._id, {
-          $set: {
-            lastAlertAt: new Date(),
-            lastAlertSeverity: severity,
-            lastAlertPeriod: periodKey,
-            lastAlertPercentage: percentage,
-          },
-        });
-
         if (result.success && result.sentCount > 0) {
+          await UserBudgetModel.findByIdAndUpdate(budget._id, {
+            $set: {
+              lastAlertAt: new Date(),
+              lastAlertSeverity: severity,
+              lastAlertPeriod: periodKey,
+              lastAlertPercentage: percentage,
+            },
+          });
           sent++;
         } else if (!result.success) {
           failed++;

@@ -20,6 +20,7 @@ interface UpdateUserSettingsInput {
   theme?: 'light' | 'dark';
   notificationsEnabled?: boolean;
   budgetNotificationsEnabled?: boolean;
+  feedingRemindersEnabled?: boolean;
   quietHoursEnabled?: boolean;
   quietHours?: {
     startHour: number;
@@ -79,6 +80,10 @@ export class UserSettingsService {
 
     if (updates.budgetNotificationsEnabled !== undefined && typeof updates.budgetNotificationsEnabled !== 'boolean') {
       throw new Error('Invalid budgetNotificationsEnabled. Must be boolean');
+    }
+
+    if (updates.feedingRemindersEnabled !== undefined && typeof updates.feedingRemindersEnabled !== 'boolean') {
+      throw new Error('Invalid feedingRemindersEnabled. Must be boolean');
     }
 
     if (updates.quietHoursEnabled !== undefined && typeof updates.quietHoursEnabled !== 'boolean') {

@@ -5,6 +5,17 @@ import { pushNotificationService } from '../services/pushNotificationService.js'
 import { getFeedingReminderMessages } from '../config/notificationMessages.js';
 import { logger } from '../utils/logger.js';
 import { resolveUserTimezone } from '../services/userTimezoneService.js';
+import {
+  NOTIFICATION_CHANNELS,
+  NOTIFICATION_ENTITY_TYPES,
+  NOTIFICATION_SCREENS,
+} from '../constants/notificationContract.js';
+import {
+  DEFAULT_QUIET_HOURS,
+  QuietHoursWindow,
+  getNextAllowedTime,
+  isInQuietHours,
+} from '../lib/quietHours.js';
 
 // Configurable batch limit from environment
 const BATCH_LIMIT = parseInt(process.env.FEEDING_REMINDER_BATCH_LIMIT ?? '100', 10);
@@ -12,8 +23,17 @@ const BATCH_LIMIT = parseInt(process.env.FEEDING_REMINDER_BATCH_LIMIT ?? '100', 
 // Max retry attempts for failed notifications
 const MAX_RETRY_ATTEMPTS = parseInt(process.env.FEEDING_REMINDER_MAX_RETRIES ?? '3', 10);
 
-// Cache for user languages to avoid repeated DB queries during batch processing
-const userLanguageCache = new Map<string, string>();
+interface CachedUserNotificationSettings {
+  language: string;
+  notificationsEnabled: boolean;
+  feedingRemindersEnabled: boolean;
+  timezone: string;
+  quietHoursEnabled: boolean;
+  quietHours: QuietHoursWindow;
+}
+
+// Cache for user notification settings to avoid repeated DB queries during batch processing
+const userNotificationSettingsCache = new Map<string, CachedUserNotificationSettings>();
 
 interface FeedingScheduleForReminder {
   _id: Types.ObjectId;
@@ -72,7 +92,7 @@ export async function checkFeedingReminders(): Promise<{
     }
 
     // Clear language cache at the start of batch processing
-    userLanguageCache.clear();
+    userNotificationSettingsCache.clear();
 
     // Batch fetch all schedules and pets to avoid N+1 queries
     const scheduleIds = [...new Set(pendingNotifications.map(n => n.scheduleId.toString()))];
@@ -116,17 +136,54 @@ export async function checkFeedingReminders(): Promise<{
 
         // Get user's language preference
         const userId = notification.userId.toString();
-        let userLanguage = userLanguageCache.get(userId);
-        if (userLanguage === undefined) {
+        let cachedSettings = userNotificationSettingsCache.get(userId);
+        if (!cachedSettings) {
           const userSettings = await UserSettingsModel.findOne({
             userId: notification.userId,
-          }).select('language').lean().exec();
-          userLanguage = userSettings?.language ?? 'en';
-          userLanguageCache.set(userId, userLanguage);
+          })
+            .select('language notificationsEnabled feedingRemindersEnabled timezone quietHoursEnabled quietHours')
+            .lean()
+            .exec();
+
+          cachedSettings = {
+            language: userSettings?.language ?? 'en',
+            notificationsEnabled: userSettings?.notificationsEnabled ?? true,
+            feedingRemindersEnabled: userSettings?.feedingRemindersEnabled ?? true,
+            timezone: userSettings?.timezone ?? 'UTC',
+            quietHoursEnabled: userSettings?.quietHoursEnabled ?? true,
+            quietHours: userSettings?.quietHours ?? DEFAULT_QUIET_HOURS,
+          };
+          userNotificationSettingsCache.set(userId, cachedSettings);
+        }
+
+        if (!cachedSettings.notificationsEnabled || !cachedSettings.feedingRemindersEnabled) {
+            await FeedingNotificationModel.findByIdAndUpdate(notification._id, {
+              $set: { status: 'cancelled' },
+            });
+          continue;
+        }
+
+        if (
+          cachedSettings.quietHoursEnabled &&
+          isInQuietHours(now, cachedSettings.timezone, cachedSettings.quietHours)
+        ) {
+          const deferredUntil = getNextAllowedTime(
+            now,
+            cachedSettings.timezone,
+            cachedSettings.quietHours
+          );
+
+          await FeedingNotificationModel.findByIdAndUpdate(notification._id, {
+            $set: {
+              status: 'pending',
+              scheduledFor: deferredUntil,
+            },
+          });
+          continue;
         }
 
         // Get localized messages
-        const messages = getFeedingReminderMessages(userLanguage ?? 'en');
+        const messages = getFeedingReminderMessages(cachedSettings.language);
 
         // Send the notification using i18n-enabled message templates
         const result = await pushNotificationService.sendToUser(userId, {
@@ -138,13 +195,15 @@ export async function checkFeedingReminders(): Promise<{
           }),
           data: {
             type: 'feeding_reminder',
-            screen: 'feeding',
+            screen: NOTIFICATION_SCREENS.feeding,
+            entityType: NOTIFICATION_ENTITY_TYPES.feeding,
+            entityId: schedule._id.toString(),
             scheduleId: schedule._id.toString(),
             petId: schedule.petId.toString(),
           },
           sound: 'default',
           priority: 'high',
-          channelId: 'feeding-reminders',
+          channelId: NOTIFICATION_CHANNELS.feeding,
         });
 
         if (result.sent > 0) {
@@ -212,6 +271,13 @@ export async function checkFeedingReminders(): Promise<{
 async function scheduleNextReminder(schedule: FeedingScheduleForReminder): Promise<void> {
   const timezone = await resolveUserTimezone(schedule.userId);
 
+  const userSettings = await UserSettingsModel.findOne({
+    userId: schedule.userId,
+  })
+    .select('quietHoursEnabled quietHours')
+    .lean()
+    .exec();
+
   const nextFeedingTime = feedingReminderService.calculateNextFeedingTime(
     schedule.time,
     schedule.days,
@@ -223,7 +289,13 @@ async function scheduleNextReminder(schedule: FeedingScheduleForReminder): Promi
   }
 
   const reminderMinutesBefore = schedule.reminderMinutesBefore ?? 15;
-  const nextNotificationTime = new Date(nextFeedingTime.getTime() - reminderMinutesBefore * 60 * 1000);
+  const baseNotificationTime = new Date(
+    nextFeedingTime.getTime() - reminderMinutesBefore * 60 * 1000
+  );
+
+  const nextNotificationTime = (userSettings?.quietHoursEnabled ?? true)
+    ? getNextAllowedTime(baseNotificationTime, timezone, userSettings?.quietHours ?? DEFAULT_QUIET_HOURS)
+    : baseNotificationTime;
 
   // Don't schedule if notification time is in the past
   if (nextNotificationTime <= new Date()) {

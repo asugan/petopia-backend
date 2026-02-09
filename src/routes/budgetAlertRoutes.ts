@@ -20,7 +20,7 @@ router.post('/check', async (req: AuthenticatedRequest, res: Response) => {
       return;
     }
 
-    // Check and send alert for the specific user only (not all users)
+    // Read-only alert preview for the specific user
     const alert = await userBudgetService.checkBudgetAlert(userId);
 
     if (!alert) {
@@ -57,6 +57,14 @@ router.post('/check', async (req: AuthenticatedRequest, res: Response) => {
       alert.notificationPayload.severity
     );
 
+    if (result.sentCount > 0) {
+      await userBudgetService.acknowledgeBudgetAlert(
+        userId,
+        alert.notificationPayload.severity,
+        alert.percentage
+      );
+    }
+
     res.json({
       success: true,
       data: {
@@ -82,7 +90,7 @@ router.post('/notify', async (req: AuthenticatedRequest, res: Response) => {
       return;
     }
 
-    // Check and send alert for the specific user
+    // Read-only alert preview for the specific user
     const alert = await userBudgetService.checkBudgetAlert(userId);
 
     if (!alert) {
@@ -115,6 +123,14 @@ router.post('/notify', async (req: AuthenticatedRequest, res: Response) => {
       alert.percentage,
       alert.notificationPayload.severity
     );
+
+    if (result.sentCount > 0) {
+      await userBudgetService.acknowledgeBudgetAlert(
+        userId,
+        alert.notificationPayload.severity,
+        alert.percentage
+      );
+    }
 
     res.json({
       success: true,

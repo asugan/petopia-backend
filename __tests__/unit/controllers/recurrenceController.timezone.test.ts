@@ -81,7 +81,10 @@ describe('RecurrenceController timezone runtime guards', () => {
 
     await controller.addException(req, mockResponse(), next);
 
-    expect(parseUTCDate).toHaveBeenCalledWith('2026-02-04T10:00:00.000Z');
+    expect(parseUTCDate).toHaveBeenCalledWith(
+      '2026-02-04T10:00:00.000Z',
+      'recurrenceController.addException.date'
+    );
     expect((controller as any).recurrenceService.addException).toHaveBeenCalledWith(
       '507f1f77bcf86cd799439011',
       '507f1f77bcf86cd799439013',

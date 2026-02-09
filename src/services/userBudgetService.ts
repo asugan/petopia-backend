@@ -53,6 +53,11 @@ export interface BudgetAlert {
   };
 }
 
+export interface BudgetAlertAckResult {
+  acknowledged: boolean;
+  periodKey?: string;
+}
+
 interface MonthlyExpenseAggregate {
   petId: string;
   amount: number;
@@ -321,8 +326,7 @@ export class UserBudgetService {
       return null;
     }
 
-    const now = new Date();
-    const periodKey = getUTCMonthPeriodKey(now);
+    const periodKey = getUTCMonthPeriodKey(new Date());
     const severity =
       budgetStatus.percentage >= 100 ? 'critical' : 'warning';
 
@@ -337,16 +341,9 @@ export class UserBudgetService {
       }
     }
 
-    const payloadBody =
-      budgetStatus.percentage >= 100
-        ? 'Budget limit exceeded. Review your expenses.'
-        : 'You are nearing your budget limit. Consider adjusting spending.';
-
-    budgetStatus.budget.lastAlertAt = now;
-    budgetStatus.budget.lastAlertSeverity = severity;
-    budgetStatus.budget.lastAlertPeriod = periodKey;
-    budgetStatus.budget.lastAlertPercentage = budgetStatus.percentage;
-    await budgetStatus.budget.save();
+    const payloadBody = budgetStatus.percentage >= 100
+      ? 'Budget limit exceeded. Review your expenses.'
+      : 'You are nearing your budget limit. Consider adjusting spending.';
 
     return {
       budget: budgetStatus.budget,
@@ -361,6 +358,31 @@ export class UserBudgetService {
         body: payloadBody,
         severity,
       },
+    };
+  }
+
+  async acknowledgeBudgetAlert(
+    userId: string,
+    severity: 'warning' | 'critical',
+    percentage: number
+  ): Promise<BudgetAlertAckResult> {
+    const budget = await this.getBudgetByUserId(userId);
+    if (!budget) {
+      return { acknowledged: false };
+    }
+
+    const now = new Date();
+    const periodKey = getUTCMonthPeriodKey(now);
+
+    budget.lastAlertAt = now;
+    budget.lastAlertSeverity = severity;
+    budget.lastAlertPeriod = periodKey;
+    budget.lastAlertPercentage = percentage;
+    await budget.save();
+
+    return {
+      acknowledged: true,
+      periodKey,
     };
   }
 

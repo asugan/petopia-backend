@@ -115,7 +115,7 @@ export class UserBudgetController {
     }
   };
 
-  // GET /api/budget/alerts - Check budget alerts with notification payload
+  // GET /api/budget/alerts - Read-only budget alert preview
   checkBudgetAlerts = async (
     req: AuthenticatedRequest,
     res: Response,
@@ -127,6 +127,39 @@ export class UserBudgetController {
       const alert = await this.userBudgetService.checkBudgetAlert(userId);
 
       successResponse(res, alert); // can be null
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  // POST /api/budget/alerts/ack - Acknowledge/dispatched budget alert
+  acknowledgeBudgetAlert = async (
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const userId = requireAuth(req);
+      const { severity, percentage } = req.body as {
+        severity?: 'warning' | 'critical';
+        percentage?: number;
+      };
+
+      if (!severity || (severity !== 'warning' && severity !== 'critical')) {
+        throw createError('severity must be warning or critical', 400, 'INVALID_SEVERITY');
+      }
+
+      if (typeof percentage !== 'number' || !Number.isFinite(percentage)) {
+        throw createError('percentage must be a valid number', 400, 'INVALID_PERCENTAGE');
+      }
+
+      const ackResult = await this.userBudgetService.acknowledgeBudgetAlert(
+        userId,
+        severity,
+        percentage
+      );
+
+      successResponse(res, ackResult);
     } catch (error) {
       next(error);
     }

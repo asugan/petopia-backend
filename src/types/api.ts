@@ -283,6 +283,7 @@ export interface UserSettings {
   theme: 'light' | 'dark';
   notificationsEnabled: boolean;
   budgetNotificationsEnabled: boolean;
+  feedingRemindersEnabled: boolean;
   quietHoursEnabled: boolean;
   quietHours: {
     startHour: number;
@@ -301,6 +302,7 @@ export interface UpdateUserSettingsRequest {
   theme?: 'light' | 'dark';
   notificationsEnabled?: boolean;
   budgetNotificationsEnabled?: boolean;
+  feedingRemindersEnabled?: boolean;
   quietHoursEnabled?: boolean;
   quietHours?: {
     startHour: number;

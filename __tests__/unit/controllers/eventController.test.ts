@@ -662,7 +662,10 @@ describe('EventController', () => {
 
       await controller.createEvent(req, res, mockNext);
 
-      expect(parseUTCDate).toHaveBeenCalledWith('2025-01-15T10:00:00.000Z');
+      expect(parseUTCDate).toHaveBeenCalledWith(
+        '2025-01-15T10:00:00.000Z',
+        'eventController.createEvent.startTime'
+      );
       expect(parseUTCDate).toHaveBeenCalledTimes(1);
     });
 
@@ -788,7 +791,10 @@ describe('EventController', () => {
 
       await controller.updateEvent(req, res, mockNext);
 
-      expect(parseUTCDate).toHaveBeenCalledWith('2025-01-20T09:00:00.000Z');
+      expect(parseUTCDate).toHaveBeenCalledWith(
+        '2025-01-20T09:00:00.000Z',
+        'eventController.updateEvent.startTime'
+      );
       expect(parseUTCDate).toHaveBeenCalledTimes(1);
     });
 
@@ -813,7 +819,10 @@ describe('EventController', () => {
 
       await controller.updateEvent(req, res, mockNext);
 
-      expect(parseUTCDate).toHaveBeenCalledWith('2025-01-20T09:00:00.000Z');
+      expect(parseUTCDate).toHaveBeenCalledWith(
+        '2025-01-20T09:00:00.000Z',
+        'eventController.updateEvent.startTime'
+      );
       expect(parseUTCDate).toHaveBeenCalledTimes(1);
     });
 

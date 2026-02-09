@@ -5,6 +5,17 @@ import { getFeedingReminderMessages } from '../config/notificationMessages.js';
 import { logger } from '../utils/logger.js';
 import { calculateNextFeedingTime } from '../lib/feedingReminderTime.js';
 import { resolveUserTimezone } from './userTimezoneService.js';
+import {
+  DEFAULT_QUIET_HOURS,
+  QuietHoursWindow,
+  getNextAllowedTime,
+  isInQuietHours,
+} from '../lib/quietHours.js';
+import {
+  NOTIFICATION_CHANNELS,
+  NOTIFICATION_ENTITY_TYPES,
+  NOTIFICATION_SCREENS,
+} from '../constants/notificationContract.js';
 
 // Cache for user languages to avoid repeated DB queries
 const userLanguageCache = new Map<string, string>();
@@ -28,6 +39,11 @@ export interface FeedingReminderResult {
   error?: string;
 }
 
+interface UserQuietHoursSettings {
+  quietHoursEnabled: boolean;
+  quietHours: QuietHoursWindow;
+}
+
 /**
  * Feeding Reminder Service
  * Handles scheduling and sending feeding reminder push notifications with i18n support
@@ -40,6 +56,18 @@ export class FeedingReminderService {
     const { scheduleId, userId, time, days, reminderMinutesBefore, timezone: configTimezone } = config;
 
     const timezone = await resolveUserTimezone(userId, configTimezone);
+
+    const userSettings = await UserSettingsModel.findOne({
+      userId: new Types.ObjectId(userId),
+    })
+      .select('notificationsEnabled feedingRemindersEnabled quietHoursEnabled quietHours')
+      .lean()
+      .exec();
+
+    if (!userSettings?.notificationsEnabled || !userSettings?.feedingRemindersEnabled) {
+      logger.info(`Feeding reminders disabled for user ${userId}, skipping schedule ${scheduleId}`);
+      return { success: true, scheduledCount: 0 };
+    }
 
     // Get user's active devices
     const devices = await UserDeviceModel.find({
@@ -61,7 +89,15 @@ export class FeedingReminderService {
     }
 
     // Calculate when to send the reminder
-    const reminderTime = new Date(nextFeedingTime.getTime() - reminderMinutesBefore * 60 * 1000);
+    const baseReminderTime = new Date(nextFeedingTime.getTime() - reminderMinutesBefore * 60 * 1000);
+    const quietHoursSettings: UserQuietHoursSettings = {
+      quietHoursEnabled: userSettings?.quietHoursEnabled ?? true,
+      quietHours: userSettings?.quietHours ?? DEFAULT_QUIET_HOURS,
+    };
+
+    const reminderTime = quietHoursSettings.quietHoursEnabled
+      ? getNextAllowedTime(baseReminderTime, timezone, quietHoursSettings.quietHours)
+      : baseReminderTime;
 
     // Don't schedule if reminder time is in the past
     if (reminderTime <= new Date()) {
@@ -162,6 +198,23 @@ export class FeedingReminderService {
         return { success: false, scheduledCount: 0, error: 'Schedule not found' };
       }
 
+      const userSettings = await UserSettingsModel.findOne({
+        userId: new Types.ObjectId(userId),
+      })
+        .select('notificationsEnabled feedingRemindersEnabled quietHoursEnabled quietHours timezone')
+        .lean()
+        .exec();
+
+      if (!userSettings?.notificationsEnabled || !userSettings?.feedingRemindersEnabled) {
+        return { success: true, scheduledCount: 0 };
+      }
+
+      const timezone = userSettings?.timezone ?? 'UTC';
+      const quietHours = userSettings?.quietHours ?? DEFAULT_QUIET_HOURS;
+      if ((userSettings?.quietHoursEnabled ?? true) && isInQuietHours(new Date(), timezone, quietHours)) {
+        return { success: true, scheduledCount: 0 };
+      }
+
       // Get pet name
       const pet = await PetModel.findById(schedule.petId);
       if (!pet) {
@@ -206,13 +259,15 @@ export class FeedingReminderService {
         body,
         data: {
           type: 'feeding_reminder',
-          screen: 'feeding',
+          screen: NOTIFICATION_SCREENS.feeding,
+          entityType: NOTIFICATION_ENTITY_TYPES.feeding,
+          entityId: scheduleId,
           scheduleId,
           petId: schedule.petId.toString(),
         },
         sound: 'default',
         priority: 'high',
-        channelId: 'feeding-reminders',
+        channelId: NOTIFICATION_CHANNELS.feeding,
       });
 
       let sentCount = 0;

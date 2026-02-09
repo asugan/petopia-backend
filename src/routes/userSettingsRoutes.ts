@@ -24,6 +24,7 @@ const updateUserSettingsSchema = z.object({
   theme: z.enum(['light', 'dark']).optional(),
   notificationsEnabled: z.boolean().optional(),
   budgetNotificationsEnabled: z.boolean().optional(),
+  feedingRemindersEnabled: z.boolean().optional(),
   quietHoursEnabled: z.boolean().optional(),
   quietHours: z.object({
     startHour: z.number().int().min(0).max(23),

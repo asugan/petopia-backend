@@ -6,12 +6,29 @@ import { logger } from '../utils/logger.js';
 import { formatInTimeZone } from 'date-fns-tz';
 import { getEventReminderMessages } from '../config/notificationMessages.js';
 import { resolveEffectiveTimezone } from '../lib/timezone.js';
+import {
+  DEFAULT_QUIET_HOURS,
+  QuietHoursWindow,
+  getNextAllowedTime,
+} from '../lib/quietHours.js';
+import {
+  EVENT_REMINDER_PRESET_MINUTES,
+  NOTIFICATION_CHANNELS,
+  NOTIFICATION_ENTITY_TYPES,
+  NOTIFICATION_SCREENS,
+} from '../constants/notificationContract.js';
 
 // Pagination settings for batch processing
 const BATCH_SIZE = 100; // Process 100 events at a time
 
-// Cache for user languages to avoid repeated DB queries
-const userLanguageCache = new Map<string, string>();
+interface CachedUserNotificationSettings {
+  language: string;
+  quietHoursEnabled: boolean;
+  quietHours: QuietHoursWindow;
+}
+
+// Cache for user notification settings to avoid repeated DB queries
+const userNotificationSettingsCache = new Map<string, CachedUserNotificationSettings>();
 
 export interface EventReminderConfig {
   eventId: string;
@@ -64,21 +81,26 @@ export class EventReminderService {
       return { success: true, scheduledCount: 0 };
     }
 
-    // Get user's language preference
-    let userLanguage = userLanguageCache.get(userId);
-    if (userLanguage === undefined) {
-      const userSettings = await UserSettingsModel.findOne({
+    // Get user's notification settings
+    let cachedSettings = userNotificationSettingsCache.get(userId);
+    if (!cachedSettings) {
+      const dbSettings = await UserSettingsModel.findOne({
         userId: new Types.ObjectId(userId),
       })
-        .select('language')
+        .select('language quietHoursEnabled quietHours')
         .lean()
         .exec();
-      userLanguage = userSettings?.language ?? 'en';
-      userLanguageCache.set(userId, userLanguage);
+
+      cachedSettings = {
+        language: dbSettings?.language ?? 'en',
+        quietHoursEnabled: dbSettings?.quietHoursEnabled ?? true,
+        quietHours: dbSettings?.quietHours ?? DEFAULT_QUIET_HOURS,
+      };
+      userNotificationSettingsCache.set(userId, cachedSettings);
     }
 
     // Get localized messages
-    const messages = getEventReminderMessages(userLanguage);
+    const messages = getEventReminderMessages(cachedSettings.language);
 
     let scheduledCount = 0;
     const now = new Date();
@@ -89,7 +111,10 @@ export class EventReminderService {
     const GRACE_WINDOW_MS = 30 * 60 * 1000;
 
     for (const minutes of reminderMinutes) {
-      const triggerTime = new Date(startTime.getTime() - minutes * 60 * 1000);
+      const baseTriggerTime = new Date(startTime.getTime() - minutes * 60 * 1000);
+      const triggerTime = cachedSettings.quietHoursEnabled
+        ? getNextAllowedTime(baseTriggerTime, timezone, cachedSettings.quietHours)
+        : baseTriggerTime;
 
       // Check if trigger time has arrived
       const triggerTimePassed = now.getTime() >= triggerTime.getTime();
@@ -139,12 +164,14 @@ export class EventReminderService {
         body: notificationBody,
         data: {
           eventId,
-          screen: 'event',
+          screen: NOTIFICATION_SCREENS.event,
+          entityType: NOTIFICATION_ENTITY_TYPES.event,
+          entityId: eventId,
           eventType,
         },
         sound: 'default',
         priority: 'high',
-        channelId: 'event-reminders',
+        channelId: NOTIFICATION_CHANNELS.event,
       });
 
       // Store notification record for tracking
@@ -251,7 +278,7 @@ export class EventReminderService {
     const userTimezoneCache = new Map<string, string>();
 
     // Clear language cache at the start of batch processing
-    userLanguageCache.clear();
+    userNotificationSettingsCache.clear();
 
     // Base query for upcoming events with reminders
     const baseQuery = {
@@ -385,14 +412,9 @@ export class EventReminderService {
    * Get reminder minutes for a preset
    */
   private getReminderMinutesForPreset(preset: string): number[] {
-    const presets: Record<string, number[]> = {
-      standard: [1440, 120, 60, 15],
-      compact: [60, 15],
-      minimal: [15],
-    };
-
+    const presets: Record<string, readonly number[]> = EVENT_REMINDER_PRESET_MINUTES;
     const result = presets[preset];
-    return result ?? presets.standard ?? [1440, 120, 60, 15];
+    return result ? [...result] : [...EVENT_REMINDER_PRESET_MINUTES.standard];
   }
 
   /**
