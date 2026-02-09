@@ -4,6 +4,7 @@ import { FeedingNotificationModel, FeedingScheduleModel, PetModel, UserDeviceMod
 import { pushNotificationService } from '../services/pushNotificationService.js';
 import { getFeedingReminderMessages } from '../config/notificationMessages.js';
 import { logger } from '../utils/logger.js';
+import { resolveEffectiveTimezone } from '../lib/timezone.js';
 
 // Configurable batch limit from environment
 const BATCH_LIMIT = parseInt(process.env.FEEDING_REMINDER_BATCH_LIMIT ?? '100', 10);
@@ -210,12 +211,12 @@ export async function checkFeedingReminders(): Promise<{
  */
 async function scheduleNextReminder(schedule: FeedingScheduleForReminder): Promise<void> {
   // Get user's timezone from settings
-  let timezone = 'UTC';
+  let timezone = resolveEffectiveTimezone({});
   try {
     const settings = await UserSettingsModel.findOne({ userId: schedule.userId }).exec();
-    timezone = settings?.timezone ?? 'UTC';
+    timezone = resolveEffectiveTimezone({ userTimezone: settings?.timezone });
   } catch {
-    timezone = 'UTC';
+    timezone = resolveEffectiveTimezone({});
   }
 
   const nextFeedingTime = feedingReminderService.calculateNextFeedingTime(

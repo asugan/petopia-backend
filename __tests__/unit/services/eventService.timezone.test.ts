@@ -227,6 +227,8 @@ describe('EventService - Timezone Consistency Bug', () => {
 
       (EventModel.find as any).mockReturnValue({
         sort: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockReturnThis(),
+        skip: vi.fn().mockReturnThis(),
         exec: vi.fn().mockResolvedValue([]),
       });
 

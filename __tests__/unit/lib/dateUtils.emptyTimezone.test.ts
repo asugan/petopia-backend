@@ -207,18 +207,18 @@ describe('getUTCDateRangeForLocalDate with empty/invalid timezone', () => {
       const nextDayRange = getUTCDateRangeForLocalDate('2026-02-05', '');  // Empty string → UTC
       console.log('Query range:', nextDayRange.start.toISOString(), '-', nextDayRange.end.toISOString());
       const inNextDayRange = new Date(eventUTC) >= nextDayRange.start && new Date(eventUTC) < nextDayRange.end;
-      console.log('Event in range:', inNextDayRange, '✓ EVENT FOUND (but on wrong day!)');
+      console.log('Event in range:', inNextDayRange, '✓ NOT FOUND (expected)');
       
       expect(inCorrectRange).toBe(true);
       expect(inBuggyRange).toBe(false);      // BUG!
-      expect(inNextDayRange).toBe(true);     // Workaround
+      expect(inNextDayRange).toBe(false);    // No accidental next-day match
       
       console.log('\n=== CONCLUSION ===');
       console.log('BUG: When timezone parameter is missing/empty:');
       console.log('1. Backend falls back to UTC');
       console.log('2. Late night events (00:00-03:00 Istanbul) appear on wrong day');
       console.log('3. Event created at 4 Feb 00:30 is NOT found on 4 Feb query');
-      console.log('4. But it IS found on 5 Feb query (wrong day!)');
+      console.log('4. It is also NOT found on 5 Feb query');
     });
   });
 });

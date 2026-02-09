@@ -14,6 +14,12 @@ const dateOnlyOrDateTimeSchema = z.union([
   z.string().datetime('Invalid date format'),
 ]);
 
+const requiredTimezoneSchema = z
+  .string()
+  .transform((value) => value.trim())
+  .refine((value) => value.length > 0, 'Timezone is required')
+  .refine(isValidTimezone, 'Invalid IANA timezone identifier');
+
 // Validation schemas
 const eventTypeEnum = z.enum([
   'feeding',
@@ -61,10 +67,7 @@ const createRecurrenceRuleSchema = z.object({
   dailyTimes: z.array(z.string().regex(/^\d{2}:\d{2}$/, 'Invalid time format (expected HH:MM)')).optional(),
 
   // Timezone with IANA validation
-  timezone: z
-    .string()
-    .min(1, 'Timezone is required')
-    .refine(isValidTimezone, 'Invalid IANA timezone identifier'),
+  timezone: requiredTimezoneSchema,
 
   // Date boundaries
   startDate: z.string().datetime('Invalid start date format'),

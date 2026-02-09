@@ -49,7 +49,10 @@ const timezoneQuerySchema = z.object({
   timezone: z
     .string()
     .optional()
-    .transform((value) => value?.trim() || undefined)
+    .transform((value) => {
+      const trimmed = value?.trim();
+      return trimmed === '' ? undefined : trimmed;
+    })
     .refine((value) => !value || isValidTimezone(value), 'Invalid IANA timezone identifier'),
 });
 

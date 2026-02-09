@@ -8,13 +8,18 @@ import { isValidTimezone } from '../lib/timezone';
 const router = Router({ mergeParams: true });
 const userSettingsController = new UserSettingsController();
 
+const optionalTimezoneSchema = z
+  .string()
+  .optional()
+  .transform((value) => {
+    const trimmed = value?.trim();
+    return trimmed === '' ? undefined : trimmed;
+  })
+  .refine((value) => !value || isValidTimezone(value), 'Invalid IANA timezone identifier');
+
 const updateUserSettingsSchema = z.object({
   baseCurrency: z.enum(['TRY', 'USD', 'EUR', 'GBP', 'AUD', 'BRL', 'CAD', 'CHF', 'CNY', 'CZK', 'DKK', 'HKD', 'HUF', 'IDR', 'ILS', 'INR', 'ISK', 'JPY', 'KRW', 'MXN', 'MYR', 'NOK', 'NZD', 'PHP', 'PLN', 'RON', 'SEK', 'SGD', 'THB', 'ZAR']).optional(),
-  timezone: z
-    .string()
-    .min(1)
-    .refine(isValidTimezone, 'Invalid IANA timezone identifier')
-    .optional(),
+  timezone: optionalTimezoneSchema,
   language: z.string().min(1).optional(),
   theme: z.enum(['light', 'dark']).optional(),
   notificationsEnabled: z.boolean().optional(),

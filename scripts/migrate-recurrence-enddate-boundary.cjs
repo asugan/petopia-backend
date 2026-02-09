@@ -5,7 +5,15 @@ require('dotenv').config();
 const MONGODB_URI = process.env.MONGODB_URI;
 const MIGRATION_KEY = '2026-02-recurrence-enddate-exclusive-boundary';
 
+/**
+ * @param {unknown} timezone
+ * @returns {boolean}
+ */
 function isValidTimezone(timezone) {
+  if (typeof timezone !== 'string') {
+    return false;
+  }
+
   try {
     Intl.DateTimeFormat(undefined, { timeZone: timezone });
     return true;
@@ -14,6 +22,10 @@ function isValidTimezone(timezone) {
   }
 }
 
+/**
+ * @param {unknown} timezone
+ * @returns {string}
+ */
 function resolveTimezone(timezone) {
   const trimmed = typeof timezone === 'string' ? timezone.trim() : '';
   if (!trimmed) {
@@ -22,6 +34,11 @@ function resolveTimezone(timezone) {
   return isValidTimezone(trimmed) ? trimmed : 'UTC';
 }
 
+/**
+ * @param {Date} endDate
+ * @param {string} timezone
+ * @returns {Date}
+ */
 function toExclusiveBoundary(endDate, timezone) {
   const localDate = formatInTimeZone(endDate, timezone, 'yyyy-MM-dd');
   const [yearStr, monthStr, dayStr] = localDate.split('-');
@@ -40,6 +57,30 @@ function isUtcMidnight(date) {
     date.getUTCMilliseconds() === 0
   );
 }
+
+/**
+ * @param {unknown} value
+ * @returns {Date | null}
+ */
+function toValidDate(value) {
+  if (!(value instanceof Date) && typeof value !== 'string' && typeof value !== 'number') {
+    return null;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed;
+}
+
+/**
+ * @typedef {object} RecurrenceRuleDoc
+ * @property {unknown} _id
+ * @property {unknown} endDate
+ * @property {unknown} timezone
+ */
 
 async function migrateRecurrenceEndDates() {
   if (!MONGODB_URI) {
@@ -65,15 +106,16 @@ async function migrateRecurrenceEndDates() {
     let scanned = 0;
 
     while (await cursor.hasNext()) {
+      /** @type {RecurrenceRuleDoc | null} */
       const doc = await cursor.next();
-      if (!doc || !doc._id || !doc.endDate) {
+      if (!doc?._id || !doc?.endDate) {
         continue;
       }
 
       scanned += 1;
       const timezone = resolveTimezone(doc.timezone);
-      const currentEndDate = new Date(doc.endDate);
-      if (Number.isNaN(currentEndDate.getTime())) {
+      const currentEndDate = toValidDate(doc.endDate);
+      if (!currentEndDate) {
         continue;
       }
 

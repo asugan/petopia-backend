@@ -4,6 +4,7 @@ import { FeedingNotificationModel, FeedingScheduleModel, PetModel, UserDeviceMod
 import { getFeedingReminderMessages } from '../config/notificationMessages.js';
 import { logger } from '../utils/logger.js';
 import { formatInTimeZone, fromZonedTime, toZonedTime } from 'date-fns-tz';
+import { resolveEffectiveTimezone } from '../lib/timezone.js';
 
 // Cache for user languages to avoid repeated DB queries
 const userLanguageCache = new Map<string, string>();
@@ -39,13 +40,13 @@ export class FeedingReminderService {
     const { scheduleId, userId, time, days, reminderMinutesBefore, timezone: configTimezone } = config;
 
     // Get user's timezone from settings if not provided
-    let timezone = configTimezone ?? 'UTC';
+    let timezone = resolveEffectiveTimezone({ userTimezone: configTimezone });
     if (!configTimezone) {
       try {
         const settings = await UserSettingsModel.findOne({ userId: new Types.ObjectId(userId) }).exec();
-        timezone = settings?.timezone ?? 'UTC';
+        timezone = resolveEffectiveTimezone({ userTimezone: settings?.timezone });
       } catch {
-        timezone = 'UTC';
+        timezone = resolveEffectiveTimezone({});
       }
     }
 
