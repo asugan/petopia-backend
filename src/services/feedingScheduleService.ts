@@ -1,8 +1,8 @@
 import { HydratedDocument, QueryFilter, Types } from 'mongoose';
 import { formatInTimeZone } from 'date-fns-tz';
-import { FeedingScheduleModel, IFeedingScheduleDocument, PetModel, UserSettingsModel } from '../models/mongoose';
+import { FeedingScheduleModel, IFeedingScheduleDocument, PetModel } from '../models/mongoose';
 import { CreateFeedingScheduleRequest, FeedingScheduleQueryParams, UpdateFeedingScheduleRequest } from '../types/api';
-import { resolveEffectiveTimezone } from '../lib/timezone';
+import { resolveUserTimezone } from './userTimezoneService';
 
 export class FeedingScheduleService {
   private dayNames = [
@@ -16,15 +16,7 @@ export class FeedingScheduleService {
   ] as const;
 
   private async resolveUserTimezone(userId: string): Promise<string> {
-    try {
-      const settings = await UserSettingsModel.findOne({ userId: new Types.ObjectId(userId) })
-        .select('timezone')
-        .lean()
-        .exec();
-      return resolveEffectiveTimezone({ userTimezone: settings?.timezone });
-    } catch {
-      return resolveEffectiveTimezone({});
-    }
+    return resolveUserTimezone(userId);
   }
 
   private getDayNameInTimezone(date: Date, timezone: string): string {

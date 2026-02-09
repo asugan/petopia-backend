@@ -4,6 +4,7 @@ import { ExpenseQueryParams } from '../types/api';
 import { ExchangeRateService } from './exchangeRateService';
 import { UserSettingsService } from './userSettingsService';
 import PDFDocument from 'pdfkit';
+import { getMonthRange, getYearRange, parseUTCDate, toUTCDateString } from '../lib/dateUtils';
 
 const exchangeRateService = new ExchangeRateService();
 const userSettingsService = new UserSettingsService();
@@ -60,10 +61,10 @@ export class ExpenseService {
       const dateQuery: { $gte?: Date; $lte?: Date } = {};
       whereClause.date = dateQuery;
       if (startDate) {
-        dateQuery.$gte = new Date(startDate);
+        dateQuery.$gte = parseUTCDate(startDate);
       }
       if (endDate) {
-        dateQuery.$lte = new Date(endDate);
+        dateQuery.$lte = parseUTCDate(endDate);
       }
     }
 
@@ -295,13 +296,11 @@ export class ExpenseService {
     month?: number
   ): Promise<HydratedDocument<IExpenseDocument>[]> {
     const now = new Date();
-    const targetYear = year ?? now.getFullYear();
-    const targetMonth = month ?? now.getMonth();
+    const targetYear = year ?? now.getUTCFullYear();
+    const targetMonth = month ?? now.getUTCMonth() + 1;
+    const { start, end } = getMonthRange(targetYear, targetMonth);
 
-    const startDate = new Date(targetYear, targetMonth, 1);
-    const endDate = new Date(targetYear, targetMonth + 1, 0, 23, 59, 59, 999);
-
-    return this.getExpensesByDateRange(userId, petId, startDate, endDate);
+    return this.getExpensesByDateRange(userId, petId, start, end);
   }
 
   async getYearlyExpenses(
@@ -310,12 +309,10 @@ export class ExpenseService {
     year?: number
   ): Promise<HydratedDocument<IExpenseDocument>[]> {
     const now = new Date();
-    const targetYear = year ?? now.getFullYear();
+    const targetYear = year ?? now.getUTCFullYear();
+    const { start, end } = getYearRange(targetYear);
 
-    const startDate = new Date(targetYear, 0, 1);
-    const endDate = new Date(targetYear, 11, 31, 23, 59, 59, 999);
-
-    return this.getExpensesByDateRange(userId, petId, startDate, endDate);
+    return this.getExpensesByDateRange(userId, petId, start, end);
   }
 
   async getExpensesByCategory(
@@ -483,7 +480,7 @@ export class ExpenseService {
       doc
         .fontSize(10)
         .text(
-          `${expense.date.toISOString().split('T')[0]} • ${expense.category} • ${formatCurrency(expense.amount, expense.currency)}${expense.amountBase ? ` (≈ ${formatCurrency(expense.amountBase, expense.baseCurrency)})` : ''}`,
+          `${toUTCDateString(expense.date)} • ${expense.category} • ${formatCurrency(expense.amount, expense.currency)}${expense.amountBase ? ` (≈ ${formatCurrency(expense.amountBase, expense.baseCurrency)})` : ''}`,
           { continued: false }
         );
       doc.moveDown(0.5);

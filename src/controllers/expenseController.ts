@@ -25,6 +25,62 @@ export class ExpenseController {
     this.reportService = new ReportService();
   }
 
+  private getQuerySource(req: AuthenticatedRequest): Record<string, unknown> {
+    return (req.validatedQuery ?? req.query) as Record<string, unknown>;
+  }
+
+  private getStringQueryValue(req: AuthenticatedRequest, key: string): string | undefined {
+    const source = this.getQuerySource(req);
+    const value = source[key];
+
+    if (typeof value === 'string') {
+      return value;
+    }
+
+    if (Array.isArray(value) && typeof value[0] === 'string') {
+      return value[0];
+    }
+
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return String(value);
+    }
+
+    return undefined;
+  }
+
+  private parseOptionalUTCDateQuery(
+    req: AuthenticatedRequest,
+    key: string
+  ): Date | undefined {
+    const value = this.getStringQueryValue(req, key);
+    if (!value) {
+      return undefined;
+    }
+
+    try {
+      return parseUTCDate(value);
+    } catch {
+      throw createError(`${key} must be a valid UTC date`, 400, 'INVALID_DATE_QUERY');
+    }
+  }
+
+  private parseOptionalNumberQuery(
+    req: AuthenticatedRequest,
+    key: string
+  ): number | undefined {
+    const value = this.getStringQueryValue(req, key);
+    if (!value) {
+      return undefined;
+    }
+
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) {
+      throw createError(`${key} must be a valid number`, 400, 'INVALID_NUMBER_QUERY');
+    }
+
+    return parsed;
+  }
+
   // GET /api/expenses OR /api/pets/:petId/expenses - Get expenses for authenticated user
   getExpensesByPetId = async (
     req: AuthenticatedRequest,
@@ -34,20 +90,21 @@ export class ExpenseController {
     try {
       const userId = requireAuth(req);
       // Support both URL params (/pets/:petId/expenses) and query string (/expenses?petId=...)
-      const petId = toString(req.params.petId) || toString(req.query.petId as string | string[] | undefined);
+      const petId = toString(req.params.petId) || (this.getStringQueryValue(req, 'petId') ?? '');
+      const page = this.parseOptionalNumberQuery(req, 'page') ?? 1;
+      const limit = this.parseOptionalNumberQuery(req, 'limit') ?? 10;
       const params: ExpenseQueryParams = {
-        ...getPaginationParams(req.query),
-        category: toString(req.query.category as string | string[] | undefined),
-        startDate: toString(req.query.startDate as string | string[] | undefined),
-        endDate: toString(req.query.endDate as string | string[] | undefined),
-        minAmount: req.query.minAmount
-          ? parseFloat(toString(req.query.minAmount as string | string[] | undefined))
-          : undefined,
-        maxAmount: req.query.maxAmount
-          ? parseFloat(toString(req.query.maxAmount as string | string[] | undefined))
-          : undefined,
-        currency: toString(req.query.currency as string | string[] | undefined),
-        paymentMethod: toString(req.query.paymentMethod as string | string[] | undefined),
+        ...getPaginationParams({
+          page: String(page),
+          limit: String(limit),
+        } as typeof req.query),
+        category: this.getStringQueryValue(req, 'category'),
+        startDate: this.getStringQueryValue(req, 'startDate'),
+        endDate: this.getStringQueryValue(req, 'endDate'),
+        minAmount: this.parseOptionalNumberQuery(req, 'minAmount'),
+        maxAmount: this.parseOptionalNumberQuery(req, 'maxAmount'),
+        currency: this.getStringQueryValue(req, 'currency'),
+        paymentMethod: this.getStringQueryValue(req, 'paymentMethod'),
       };
 
       const { expenses, total } = await this.expenseService.getExpensesByPetId(
@@ -55,12 +112,10 @@ export class ExpenseController {
         petId,
         params
       );
-      const page = params.page ?? 1;
-      const limit = params.limit ?? 10;
       const meta = {
         total,
-        page,
-        limit,
+        page: params.page ?? 1,
+        limit: params.limit ?? 10,
         totalPages: Math.ceil(total / limit),
       };
 
@@ -208,14 +263,10 @@ export class ExpenseController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const petId = toString(req.query.petId as string | string[] | undefined);
-      const startDate = req.query.startDate
-        ? new Date(toString(req.query.startDate as string | string[] | undefined))
-        : undefined;
-      const endDate = req.query.endDate
-        ? new Date(toString(req.query.endDate as string | string[] | undefined))
-        : undefined;
-      const category = toString(req.query.category as string | string[] | undefined);
+      const petId = this.getStringQueryValue(req, 'petId');
+      const startDate = this.parseOptionalUTCDateQuery(req, 'startDate');
+      const endDate = this.parseOptionalUTCDateQuery(req, 'endDate');
+      const category = this.getStringQueryValue(req, 'category');
 
       const stats = await this.expenseService.getExpenseStats(
         userId,
@@ -238,13 +289,9 @@ export class ExpenseController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const petId = toString(req.query.petId as string | string[] | undefined);
-      const startDate = req.query.startDate
-        ? new Date(toString(req.query.startDate as string | string[] | undefined))
-        : undefined;
-      const endDate = req.query.endDate
-        ? new Date(toString(req.query.endDate as string | string[] | undefined))
-        : undefined;
+      const petId = this.getStringQueryValue(req, 'petId');
+      const startDate = this.parseOptionalUTCDateQuery(req, 'startDate');
+      const endDate = this.parseOptionalUTCDateQuery(req, 'endDate');
 
       if (!startDate || !endDate) {
         throw createError(
@@ -274,13 +321,12 @@ export class ExpenseController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const petId = toString(req.query.petId as string | string[] | undefined);
-      const year = req.query.year
-        ? parseInt(toString(req.query.year as string | string[] | undefined))
-        : undefined;
+      const petId = this.getStringQueryValue(req, 'petId');
+      const yearValue = this.getStringQueryValue(req, 'year');
+      const year = yearValue ? parseInt(yearValue, 10) : undefined;
       const month =
-        req.query.month !== undefined
-          ? parseInt(toString(req.query.month as string | string[] | undefined))
+        this.getStringQueryValue(req, 'month') !== undefined
+          ? parseInt(this.getStringQueryValue(req, 'month') as string, 10)
           : undefined;
 
       const expenses = await this.expenseService.getMonthlyExpenses(
@@ -303,10 +349,9 @@ export class ExpenseController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const petId = toString(req.query.petId as string | string[] | undefined);
-      const year = req.query.year
-        ? parseInt(toString(req.query.year as string | string[] | undefined))
-        : undefined;
+      const petId = this.getStringQueryValue(req, 'petId');
+      const yearValue = this.getStringQueryValue(req, 'year');
+      const year = yearValue ? parseInt(yearValue, 10) : undefined;
 
       const expenses = await this.expenseService.getYearlyExpenses(
         userId,
@@ -353,13 +398,9 @@ export class ExpenseController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const petId = toString(req.query.petId as string | string[] | undefined);
-      const startDate = req.query.startDate
-        ? new Date(toString(req.query.startDate as string | string[] | undefined))
-        : undefined;
-      const endDate = req.query.endDate
-        ? new Date(toString(req.query.endDate as string | string[] | undefined))
-        : undefined;
+      const petId = this.getStringQueryValue(req, 'petId');
+      const startDate = this.parseOptionalUTCDateQuery(req, 'startDate');
+      const endDate = this.parseOptionalUTCDateQuery(req, 'endDate');
 
       const csvContent = await this.expenseService.exportExpensesCSV(
         userId,
@@ -387,13 +428,9 @@ export class ExpenseController {
   ): Promise<void> => {
     try {
       const userId = requireAuth(req);
-      const petId = toString(req.query.petId as string | string[] | undefined);
-      const startDate = req.query.startDate
-        ? new Date(toString(req.query.startDate as string | string[] | undefined))
-        : undefined;
-      const endDate = req.query.endDate
-        ? new Date(toString(req.query.endDate as string | string[] | undefined))
-        : undefined;
+      const petId = this.getStringQueryValue(req, 'petId');
+      const startDate = this.parseOptionalUTCDateQuery(req, 'startDate');
+      const endDate = this.parseOptionalUTCDateQuery(req, 'endDate');
 
       const pdfBuffer = await this.expenseService.exportExpensesPDF(
         userId,

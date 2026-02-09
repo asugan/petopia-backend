@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  getCurrentUTCMonthRange,
+  getMonthRange,
+  getPreviousUTCMonthRange,
+  getUTCMonthPeriodKey,
+  getYearRange,
+  dateJSONReplacer,
   formatDateInTimeZone,
   getUTCDateRangeForLocalDate,
   parseUTCDate,
@@ -220,5 +226,50 @@ describe('parseUTCDate', () => {
   it('parses ISO strings with negative UTC offset correctly', () => {
     const parsed = parseUTCDate('2026-02-04T10:00:00-05:00');
     expect(parsed.toISOString()).toBe('2026-02-04T15:00:00.000Z');
+  });
+});
+
+describe('dateJSONReplacer', () => {
+  it('normalizes timezone-less datetime strings to UTC', () => {
+    const result = dateJSONReplacer('startTime', '2026-02-04T10:00:00');
+    expect(result).toBe('2026-02-04T10:00:00.000Z');
+  });
+
+  it('keeps offset datetime strings unchanged', () => {
+    const value = '2026-02-04T10:00:00+03:00';
+    const result = dateJSONReplacer('startTime', value);
+    expect(result).toBe(value);
+  });
+});
+
+describe('UTC finance boundaries', () => {
+  it('returns UTC month range regardless of server local timezone', () => {
+    const { start, end } = getMonthRange(2026, 2);
+
+    expect(start.toISOString()).toBe('2026-02-01T00:00:00.000Z');
+    expect(end.toISOString()).toBe('2026-02-28T23:59:59.999Z');
+  });
+
+  it('returns UTC year range boundaries', () => {
+    const { start, end } = getYearRange(2026);
+
+    expect(start.toISOString()).toBe('2026-01-01T00:00:00.000Z');
+    expect(end.toISOString()).toBe('2026-12-31T23:59:59.999Z');
+  });
+
+  it('builds UTC month period key', () => {
+    const periodKey = getUTCMonthPeriodKey(new Date('2026-02-28T23:59:59.000Z'));
+    expect(periodKey).toBe('2026-02');
+  });
+
+  it('gets current and previous UTC month ranges', () => {
+    const reference = new Date('2026-02-15T08:00:00.000Z');
+    const current = getCurrentUTCMonthRange(reference);
+    const previous = getPreviousUTCMonthRange(reference);
+
+    expect(current.start.toISOString()).toBe('2026-02-01T00:00:00.000Z');
+    expect(current.end.toISOString()).toBe('2026-02-28T23:59:59.999Z');
+    expect(previous.start.toISOString()).toBe('2026-01-01T00:00:00.000Z');
+    expect(previous.end.toISOString()).toBe('2026-01-31T23:59:59.999Z');
   });
 });

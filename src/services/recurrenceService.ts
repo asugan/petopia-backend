@@ -114,6 +114,45 @@ function normalizeRecurrenceEndDateExclusiveUTC(
   return fromZonedTime(`${nextDateStr}T00:00:00`, timezone);
 }
 
+function parseLocalDateParts(localDate: string): {
+  year: number;
+  month: number;
+  day: number;
+} {
+  const [yearStr, monthStr, dayStr] = localDate.split('-');
+
+  return {
+    year: Number(yearStr),
+    month: Number(monthStr),
+    day: Number(dayStr),
+  };
+}
+
+function getLocalDateInfo(date: Date, timezone: string): {
+  year: number;
+  month: number;
+  day: number;
+  dayOfWeek: number;
+} {
+  const localDate = formatInTimeZone(date, timezone, 'yyyy-MM-dd');
+  const { year, month, day } = parseLocalDateParts(localDate);
+  const dayOfWeek = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+
+  return { year, month, day, dayOfWeek };
+}
+
+function getLocalDayDifference(from: Date, to: Date, timezone: string): number {
+  const fromLocal = formatInTimeZone(from, timezone, 'yyyy-MM-dd');
+  const toLocal = formatInTimeZone(to, timezone, 'yyyy-MM-dd');
+  const fromParts = parseLocalDateParts(fromLocal);
+  const toParts = parseLocalDateParts(toLocal);
+
+  const fromUtcMidnight = Date.UTC(fromParts.year, fromParts.month - 1, fromParts.day);
+  const toUtcMidnight = Date.UTC(toParts.year, toParts.month - 1, toParts.day);
+
+  return Math.floor((toUtcMidnight - fromUtcMidnight) / (1000 * 60 * 60 * 24));
+}
+
 /**
  * Calculate all dates for a recurrence rule within horizon
  * @param rule - The recurrence rule
@@ -150,8 +189,7 @@ function calculateRecurrenceDates(
   const currentDate = new Date(startDate);
   const interval = rule.interval ?? 1;
 
-  // For weekly recurrence with interval > 1, we need to track week numbers
-  const startWeekNumber = Math.floor(startDate.getTime() / (7 * 24 * 60 * 60 * 1000));
+  const startLocalInfo = getLocalDateInfo(startDate, rule.timezone);
 
   while (currentDate <= effectiveEnd) {
     let shouldInclude = false;
@@ -163,33 +201,37 @@ function calculateRecurrenceDates(
         break;
 
       case 'weekly': {
-        // Calculate the current week number relative to start
-        const currentWeekNumber = Math.floor(currentDate.getTime() / (7 * 24 * 60 * 60 * 1000));
-        const weeksSinceStart = currentWeekNumber - startWeekNumber;
+        const weeksSinceStart = Math.floor(
+          getLocalDayDifference(startDate, currentDate, rule.timezone) / 7
+        );
+        const currentLocalInfo = getLocalDateInfo(currentDate, rule.timezone);
         
         // Only include if we're in the correct interval week
         if (weeksSinceStart >= 0 && weeksSinceStart % interval === 0) {
           if (rule.daysOfWeek && rule.daysOfWeek.length > 0) {
-            const dayOfWeek = currentDate.getUTCDay();
-            shouldInclude = rule.daysOfWeek.includes(dayOfWeek);
+            shouldInclude = rule.daysOfWeek.includes(currentLocalInfo.dayOfWeek);
           } else {
             // Default to same day as start date
-            shouldInclude = currentDate.getUTCDay() === startDate.getUTCDay();
+            shouldInclude =
+              currentLocalInfo.dayOfWeek === startLocalInfo.dayOfWeek;
           }
         }
         break;
       }
 
       case 'monthly': {
-        const targetDay = rule.dayOfMonth ?? startDate.getUTCDate();
-        const currentDay = currentDate.getUTCDate();
+        const currentLocalInfo = getLocalDateInfo(currentDate, rule.timezone);
+        const targetDay = rule.dayOfMonth ?? startLocalInfo.day;
+        const currentDay = currentLocalInfo.day;
         
         // Check if this is the target day, or if target day doesn't exist in this month
         // (e.g., target is 31 but month has 30 days), use the last day
         const lastDayOfMonth = new Date(
-          currentDate.getUTCFullYear(),
-          currentDate.getUTCMonth() + 1,
-          0
+          Date.UTC(
+            currentLocalInfo.year,
+            currentLocalInfo.month,
+            0
+          )
         ).getUTCDate();
         
         if (targetDay > lastDayOfMonth) {
@@ -202,8 +244,8 @@ function calculateRecurrenceDates(
         // Apply interval for monthly (every N months)
         if (shouldInclude && interval > 1) {
           const monthsSinceStart =
-            (currentDate.getUTCFullYear() - startDate.getUTCFullYear()) * 12 +
-            (currentDate.getUTCMonth() - startDate.getUTCMonth());
+            (currentLocalInfo.year - startLocalInfo.year) * 12 +
+            (currentLocalInfo.month - startLocalInfo.month);
           if (monthsSinceStart % interval !== 0) {
             shouldInclude = false;
           }
@@ -211,18 +253,18 @@ function calculateRecurrenceDates(
         break;
       }
 
-      case 'yearly':
+      case 'yearly': {
+        const currentLocalInfo = getLocalDateInfo(currentDate, rule.timezone);
         shouldInclude =
-          currentDate.getUTCMonth() === startDate.getUTCMonth() &&
-          currentDate.getUTCDate() === startDate.getUTCDate();
+          currentLocalInfo.month === startLocalInfo.month &&
+          currentLocalInfo.day === startLocalInfo.day;
         break;
+      }
 
       case 'custom': {
-        // Every N days from start
-        const diffDays = Math.floor(
-          (currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
-        );
-        shouldInclude = diffDays % interval === 0;
+        // Every N days from start, evaluated in rule timezone local day
+        const diffDays = getLocalDayDifference(startDate, currentDate, rule.timezone);
+        shouldInclude = diffDays >= 0 && diffDays % interval === 0;
         break;
       }
     }

@@ -2,6 +2,11 @@ import { HydratedDocument, Types } from 'mongoose';
 import { ExpenseModel, IUserBudgetDocument, UserBudgetModel } from '../models/mongoose';
 import { SetUserBudgetInput } from '../types/api';
 import { UserSettingsService } from './userSettingsService';
+import {
+  getCurrentUTCMonthRange,
+  getPreviousUTCMonthRange,
+  getUTCMonthPeriodKey,
+} from '../lib/dateUtils';
 
 
 // Budget status interface with pet breakdown
@@ -163,27 +168,8 @@ export class UserBudgetService {
 
     budget.currency = baseCurrency;
 
-    const now = new Date();
-    const startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-    const endDate = new Date(
-      now.getFullYear(),
-      now.getMonth() + 1,
-      0,
-      23,
-      59,
-      59,
-      999
-    );
-    const prevStartDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const prevEndDate = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      0,
-      23,
-      59,
-      59,
-      999
-    );
+    const { start: startDate, end: endDate } = getCurrentUTCMonthRange();
+    const { start: prevStartDate, end: prevEndDate } = getPreviousUTCMonthRange();
 
     // Get all expenses for the user in current month (use amountBase for multi-currency support)
     const monthlyExpenses = await ExpenseModel.aggregate<MonthlyExpenseAggregate>([
@@ -335,7 +321,7 @@ export class UserBudgetService {
     }
 
     const now = new Date();
-    const periodKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const periodKey = getUTCMonthPeriodKey(now);
     const severity =
       budgetStatus.percentage >= 100 ? 'critical' : 'warning';
 

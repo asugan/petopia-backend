@@ -1,6 +1,11 @@
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import { resolveEffectiveTimezone } from './timezone';
 
+export interface UTCDateRange {
+  start: Date;
+  end: Date;
+}
+
 /**
  * Backend date utilities for consistent UTC handling
  *
@@ -49,7 +54,10 @@ export function toUTCISOString(date: Date): string {
  * @returns Date-only string in YYYY-MM-DD format
  */
 export function toUTCDateString(date: Date): string {
-  return date.toISOString().split('T')[0] ?? '';
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 /**
@@ -112,7 +120,7 @@ export function dateJSONReplacer(key: string, value: unknown): unknown {
   if (
     typeof value === 'string' &&
     /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value) &&
-    !value.endsWith('Z')
+    !/(Z|[+-]\d{2}:\d{2})$/.test(value)
   ) {
     return toUTCISOString(new Date(`${value}Z`));
   }
@@ -185,6 +193,71 @@ export function getUTCUpcomingBoundaries(days = 7) {
     gte: now.getTime(),
     lte: endDate.getTime(),
   };
+}
+
+/**
+ * Build a UTC month range [start, end] where end is inclusive to millisecond.
+ * Month input is 1-based (January = 1).
+ */
+export function getMonthRange(year: number, month: number): UTCDateRange {
+  if (!Number.isInteger(year) || year < 1970 || year > 9999) {
+    throw new Error('Invalid year. Expected integer between 1970 and 9999');
+  }
+  if (!Number.isInteger(month) || month < 1 || month > 12) {
+    throw new Error('Invalid month. Expected integer between 1 and 12');
+  }
+
+  const start = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
+  const end = new Date(Date.UTC(year, month, 1, 0, 0, 0, 0) - 1);
+
+  return { start, end };
+}
+
+/**
+ * Build a UTC year range [start, end] where end is inclusive to millisecond.
+ */
+export function getYearRange(year: number): UTCDateRange {
+  if (!Number.isInteger(year) || year < 1970 || year > 9999) {
+    throw new Error('Invalid year. Expected integer between 1970 and 9999');
+  }
+
+  const start = new Date(Date.UTC(year, 0, 1, 0, 0, 0, 0));
+  const end = new Date(Date.UTC(year + 1, 0, 1, 0, 0, 0, 0) - 1);
+
+  return { start, end };
+}
+
+/**
+ * UTC period key in YYYY-MM format.
+ */
+export function getUTCMonthPeriodKey(referenceDate: Date = new Date()): string {
+  const year = referenceDate.getUTCFullYear();
+  const month = String(referenceDate.getUTCMonth() + 1).padStart(2, '0');
+  return `${year}-${month}`;
+}
+
+export function getCurrentUTCMonthRange(referenceDate: Date = new Date()): UTCDateRange {
+  return getMonthRange(
+    referenceDate.getUTCFullYear(),
+    referenceDate.getUTCMonth() + 1
+  );
+}
+
+export function getPreviousUTCMonthRange(referenceDate: Date = new Date()): UTCDateRange {
+  const previousMonth = new Date(Date.UTC(
+    referenceDate.getUTCFullYear(),
+    referenceDate.getUTCMonth() - 1,
+    1,
+    0,
+    0,
+    0,
+    0
+  ));
+
+  return getMonthRange(
+    previousMonth.getUTCFullYear(),
+    previousMonth.getUTCMonth() + 1
+  );
 }
 
 function formatUTCDateString(date: Date): string {

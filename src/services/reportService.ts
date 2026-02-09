@@ -2,6 +2,7 @@ import PDFDocument from 'pdfkit';
 import { Types } from 'mongoose';
 import { EventModel, ExpenseModel, HealthRecordModel, PetModel } from '../models/mongoose';
 import { createError } from '../middleware/errorHandler';
+import { toUTCDateString } from '../lib/dateUtils';
 
 interface VetSummaryInput {
   userId: string;
@@ -65,7 +66,7 @@ export class ReportService {
     });
 
     const formatDate = (value?: Date) =>
-      value ? value.toISOString().split('T')[0] : '-';
+      value ? toUTCDateString(value) : '-';
     const formatCurrency = (value?: number, currency?: string) =>
       value !== undefined ? `${value.toFixed(2)} ${currency ?? ''}`.trim() : '-';
 

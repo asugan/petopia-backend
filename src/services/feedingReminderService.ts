@@ -3,8 +3,8 @@ import { pushNotificationService } from './pushNotificationService.js';
 import { FeedingNotificationModel, FeedingScheduleModel, PetModel, UserDeviceModel, UserSettingsModel } from '../models/mongoose/index.js';
 import { getFeedingReminderMessages } from '../config/notificationMessages.js';
 import { logger } from '../utils/logger.js';
-import { formatInTimeZone, fromZonedTime, toZonedTime } from 'date-fns-tz';
-import { resolveEffectiveTimezone } from '../lib/timezone.js';
+import { calculateNextFeedingTime } from '../lib/feedingReminderTime.js';
+import { resolveUserTimezone } from './userTimezoneService.js';
 
 // Cache for user languages to avoid repeated DB queries
 const userLanguageCache = new Map<string, string>();
@@ -39,16 +39,7 @@ export class FeedingReminderService {
   async scheduleFeedingReminder(config: FeedingReminderConfig): Promise<FeedingReminderResult> {
     const { scheduleId, userId, time, days, reminderMinutesBefore, timezone: configTimezone } = config;
 
-    // Get user's timezone from settings if not provided
-    let timezone = resolveEffectiveTimezone({ userTimezone: configTimezone });
-    if (!configTimezone) {
-      try {
-        const settings = await UserSettingsModel.findOne({ userId: new Types.ObjectId(userId) }).exec();
-        timezone = resolveEffectiveTimezone({ userTimezone: settings?.timezone });
-      } catch {
-        timezone = resolveEffectiveTimezone({});
-      }
-    }
+    const timezone = await resolveUserTimezone(userId, configTimezone);
 
     // Get user's active devices
     const devices = await UserDeviceModel.find({
@@ -299,58 +290,7 @@ export class FeedingReminderService {
    * Uses date-fns-tz for clean timezone handling
    */
   calculateNextFeedingTime(time: string, days: string, timezone = 'UTC'): Date | null {
-    const now = new Date();
-    const [hours, minutes] = time.split(':').map(Number);
-
-    if (hours === undefined || minutes === undefined) {
-      return null;
-    }
-
-    const dayNames = [
-      'sunday',
-      'monday',
-      'tuesday',
-      'wednesday',
-      'thursday',
-      'friday',
-      'saturday',
-    ];
-
-    // Get current date in user's timezone using toZonedTime
-    const nowInTz = toZonedTime(now, timezone);
-    const todayDayIndex = nowInTz.getDay();
-    const todayName: string = dayNames[todayDayIndex] ?? 'sunday';
-
-    // Get today's date string in the user's timezone
-    const todayDateStr = formatInTimeZone(now, timezone, 'yyyy-MM-dd');
-
-    // Build today's feeding time in the user's timezone and convert to UTC
-    // fromZonedTime: takes a date string in a timezone and returns UTC Date
-    const todayFeedingTimeUTC = fromZonedTime(`${todayDateStr}T${time}:00`, timezone);
-
-    // Check if today is a scheduled day and feeding time hasn't passed
-    if (days.toLowerCase().includes(todayName) && todayFeedingTimeUTC > now) {
-      return todayFeedingTimeUTC;
-    }
-
-    // Find the next scheduled day
-    for (let i = 1; i <= 7; i++) {
-      const nextDayDate = new Date(nowInTz);
-      nextDayDate.setDate(nowInTz.getDate() + i);
-      const nextDayIndex = nextDayDate.getDay();
-      const nextDayName: string = dayNames[nextDayIndex] ?? 'sunday';
-
-      if (days.toLowerCase().includes(nextDayName)) {
-        // Get next scheduled day date in user's timezone
-        const nextDayDateStr = formatInTimeZone(nextDayDate, timezone, 'yyyy-MM-dd');
-        
-        // Convert to UTC for storage using fromZonedTime
-        const nextFeedingTimeUTC = fromZonedTime(`${nextDayDateStr}T${time}:00`, timezone);
-        return nextFeedingTimeUTC;
-      }
-    }
-
-    return null;
+    return calculateNextFeedingTime(time, days, timezone);
   }
 
   /**

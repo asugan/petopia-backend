@@ -5,6 +5,7 @@ import { UserDeviceModel } from '../models/mongoose/userDevices.js';
 import { ExpenseModel, UserSettingsModel } from '../models/mongoose/index.js';
 import { getBudgetAlertMessages } from '../config/notificationMessages.js';
 import { logger } from '../utils/logger.js';
+import { getCurrentUTCMonthRange, getUTCMonthPeriodKey } from '../lib/dateUtils.js';
 
 // Cache for user languages to avoid repeated DB queries
 const userLanguageCache = new Map<string, string>();
@@ -144,8 +145,7 @@ export class BudgetAlertService {
     sent: number;
     failed: number;
   }> {
-    const now = new Date();
-    const periodKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const periodKey = getUTCMonthPeriodKey();
 
     // Get all users with active budgets
     const budgets = await UserBudgetModel.find({ isActive: true }).lean();
@@ -244,9 +244,7 @@ export class BudgetAlertService {
    * Get current month spending for a user
    */
   private async getCurrentMonthSpending(userId: string, currency: string): Promise<number> {
-    const now = new Date();
-    const startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-    const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    const { start, end } = getCurrentUTCMonthRange();
 
     interface AggregateResult {
       _id: null;
@@ -258,7 +256,7 @@ export class BudgetAlertService {
         $match: {
           userId: new Types.ObjectId(userId),
           baseCurrency: currency,
-          date: { $gte: startDate, $lte: endDate },
+          date: { $gte: start, $lte: end },
         },
       },
       {
@@ -287,8 +285,7 @@ export class BudgetAlertService {
       return { hasAlert: false, percentage: 0 };
     }
 
-    const now = new Date();
-    const periodKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const periodKey = getUTCMonthPeriodKey();
 
     const hasAlert = budget.lastAlertPeriod === periodKey;
     const severity = hasAlert ? budget.lastAlertSeverity : undefined;
