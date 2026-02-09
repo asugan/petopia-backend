@@ -29,6 +29,9 @@ router.post(
   subscriptionController.startTrial
 );
 
+// POST /api/subscription/verify - Force verify latest subscription state
+router.post('/verify', subscriptionController.verifySubscription);
+
 // POST /api/subscription/deactivate-trial - Deprecated: Trial is auto-converted on purchase
 router.post('/deactivate-trial', subscriptionController.deactivateTrial);
 

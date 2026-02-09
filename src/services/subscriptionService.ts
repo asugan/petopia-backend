@@ -7,6 +7,7 @@ import {
   SUBSCRIPTION_PROVIDERS,
   SUBSCRIPTION_STATUSES,
 } from '../config/subscriptionConfig';
+import { RevenueCatService } from './revenueCatService';
 
 /**
  * Unified subscription status - single source of truth for frontend
@@ -24,6 +25,8 @@ export interface UnifiedSubscriptionStatus {
 }
 
 export class SubscriptionService {
+  private revenueCatService = new RevenueCatService();
+
   /**
    * Get unified subscription status for a user
    * This is the main endpoint - frontend should use this for all status checks
@@ -79,6 +82,29 @@ export class SubscriptionService {
       canStartTrial: false, // Already has subscription
       provider: subscription.provider,
     };
+  }
+
+  async verifyAndSyncFromRevenueCat(userId: string): Promise<UnifiedSubscriptionStatus> {
+    const result = await this.revenueCatService.verifyActiveEntitlement(userId);
+
+    if (!result.configured) {
+      return this.getSubscriptionStatus(userId);
+    }
+
+    if (result.isActive && result.expiresAt) {
+      const status = result.isCancelled
+        ? SUBSCRIPTION_STATUSES.CANCELLED
+        : SUBSCRIPTION_STATUSES.ACTIVE;
+
+      await this.upsertRevenueCatSubscription(
+        userId,
+        null,
+        result.expiresAt,
+        status
+      );
+    }
+
+    return this.getSubscriptionStatus(userId);
   }
 
   /**
@@ -172,7 +198,7 @@ export class SubscriptionService {
    */
   async upsertRevenueCatSubscription(
     userId: string,
-    revenueCatId: string,
+    revenueCatId: string | null,
     expiresAt: Date,
     status: string
   ): Promise<HydratedDocument<ISubscriptionDocument> | null> {
@@ -187,7 +213,7 @@ export class SubscriptionService {
         { userId },
         {
           provider: SUBSCRIPTION_PROVIDERS.REVENUECAT,
-          revenueCatId,
+          ...(revenueCatId ? { revenueCatId } : {}),
           status,
           expiresAt,
           updatedAt: now,
@@ -202,7 +228,7 @@ export class SubscriptionService {
     const newSubscription = new SubscriptionModel({
       userId,
       provider: SUBSCRIPTION_PROVIDERS.REVENUECAT,
-      revenueCatId,
+      revenueCatId: revenueCatId ?? undefined,
       tier: SUBSCRIPTION_CONFIG.TIERS.PRO,
       status,
       expiresAt,
@@ -239,6 +265,32 @@ export class SubscriptionService {
     ).exec();
 
     return updatedSubscription;
+  }
+
+  async updateLatestRevenueCatSubscriptionForUser(
+    userId: string,
+    status: string,
+    expiresAt?: Date
+  ): Promise<HydratedDocument<ISubscriptionDocument> | null> {
+    const now = new Date();
+
+    const updateData: { status: string; updatedAt: Date; expiresAt?: Date } = {
+      status,
+      updatedAt: now,
+    };
+
+    if (expiresAt) {
+      updateData.expiresAt = expiresAt;
+    }
+
+    return SubscriptionModel.findOneAndUpdate(
+      {
+        userId,
+        provider: SUBSCRIPTION_PROVIDERS.REVENUECAT,
+      },
+      updateData,
+      { new: true, sort: { updatedAt: -1 } }
+    ).exec();
   }
 
   /**

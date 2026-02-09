@@ -128,12 +128,12 @@ export class WebhookController {
           break;
 
         case 'CANCELLATION':
-          await this.handleCancellation(revenueCatId, expiresAt);
+          await this.handleCancellation(userId, revenueCatId, expiresAt);
           break;
 
         case 'EXPIRATION':
         case 'BILLING_ISSUE':
-          await this.handleExpiration(revenueCatId);
+          await this.handleExpiration(userId, revenueCatId);
           break;
 
         case 'PRODUCT_CHANGE':
@@ -142,7 +142,7 @@ export class WebhookController {
 
         case 'SUBSCRIPTION_PAUSED':
           // Treat paused as cancelled for now
-          await this.handleCancellation(revenueCatId, expiresAt);
+          await this.handleCancellation(userId, revenueCatId, expiresAt);
           break;
 
         case 'TEST':
@@ -191,16 +191,25 @@ export class WebhookController {
    * User cancelled but still has access until expiration
    */
   private async handleCancellation(
+    userId: string,
     revenueCatId: string,
     expiresAt: Date
   ): Promise<void> {
     // Processing cancellation
 
-    await this.subscriptionService.updateSubscriptionStatus(
+    const updated = await this.subscriptionService.updateSubscriptionStatus(
       revenueCatId,
       SUBSCRIPTION_STATUSES.CANCELLED,
       expiresAt
     );
+
+    if (!updated) {
+      await this.subscriptionService.updateLatestRevenueCatSubscriptionForUser(
+        userId,
+        SUBSCRIPTION_STATUSES.CANCELLED,
+        expiresAt
+      );
+    }
 
     // Subscription marked as cancelled
   }
@@ -209,13 +218,23 @@ export class WebhookController {
    * Handle expiration events
    * Subscription has fully expired
    */
-  private async handleExpiration(revenueCatId: string): Promise<void> {
+  private async handleExpiration(
+    userId: string,
+    revenueCatId: string
+  ): Promise<void> {
     // Processing expiration
 
-    await this.subscriptionService.updateSubscriptionStatus(
+    const updated = await this.subscriptionService.updateSubscriptionStatus(
       revenueCatId,
       SUBSCRIPTION_STATUSES.EXPIRED
     );
+
+    if (!updated) {
+      await this.subscriptionService.updateLatestRevenueCatSubscriptionForUser(
+        userId,
+        SUBSCRIPTION_STATUSES.EXPIRED
+      );
+    }
 
     // Subscription marked as expired
   }

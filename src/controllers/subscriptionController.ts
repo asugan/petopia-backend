@@ -142,6 +142,24 @@ export class SubscriptionController {
     }
   };
 
+  /**
+   * POST /api/subscription/verify
+   * Verify and sync latest purchase status from RevenueCat, then return unified status
+   */
+  verifySubscription = async (
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const userId = requireAuth(req);
+      const status = await this.subscriptionService.verifyAndSyncFromRevenueCat(userId);
+      successResponse(res, status);
+    } catch (error) {
+      next(error);
+    }
+  };
+
 
   /**
    * POST /api/subscription/deactivate-trial
