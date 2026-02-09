@@ -3,18 +3,10 @@ import { UserSettingsController } from '../controllers/userSettingsController';
 import { validateRequest } from '../middleware/validation';
 import { authMiddleware } from '../middleware/auth';
 import { z } from 'zod';
+import { isValidTimezone } from '../lib/timezone';
 
 const router = Router({ mergeParams: true });
 const userSettingsController = new UserSettingsController();
-
-function isValidTimezone(tz: string): boolean {
-  try {
-    Intl.DateTimeFormat(undefined, { timeZone: tz });
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 const updateUserSettingsSchema = z.object({
   baseCurrency: z.enum(['TRY', 'USD', 'EUR', 'GBP', 'AUD', 'BRL', 'CAD', 'CHF', 'CNY', 'CZK', 'DKK', 'HKD', 'HUF', 'IDR', 'ILS', 'INR', 'ISK', 'JPY', 'KRW', 'MXN', 'MYR', 'NOK', 'NZD', 'PHP', 'PLN', 'RON', 'SEK', 'SGD', 'THB', 'ZAR']).optional(),

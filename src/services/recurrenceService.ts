@@ -1,5 +1,5 @@
 import { HydratedDocument, Types } from 'mongoose';
-import { fromZonedTime } from 'date-fns-tz';
+import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import {
   EventModel,
   IEventDocument,
@@ -15,21 +15,10 @@ import {
   UpdateRecurrenceRuleRequest,
 } from '../types/api';
 import { parseUTCDate } from '../lib/dateUtils';
+import { isValidTimezone, resolveEffectiveTimezone } from '../lib/timezone';
 
 // Default event time if user settings not available
 const DEFAULT_EVENT_TIME = '09:00';
-
-/**
- * Validates if a string is a valid IANA timezone identifier
- */
-function isValidTimezone(tz: string): boolean {
-  try {
-    Intl.DateTimeFormat(undefined, { timeZone: tz });
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 /**
  * Get horizon (days) for event generation based on frequency
@@ -91,12 +80,38 @@ function applyTimeToDateInTimezone(
   const year = baseDate.getUTCFullYear();
   const month = baseDate.getUTCMonth();
   const day = baseDate.getUTCDate();
+  const monthHuman = String(month + 1).padStart(2, '0');
+  const dayHuman = String(day).padStart(2, '0');
+  const hoursHuman = String(hours).padStart(2, '0');
+  const minutesHuman = String(minutes).padStart(2, '0');
 
-  // Create a Date object representing the local time in the timezone
-  // date-fns-tz's fromZonedTime converts a "local time in timezone" to UTC
-  const localDateInTimezone = new Date(year, month, day, hours, minutes, 0, 0);
-  
-  return fromZonedTime(localDateInTimezone, timezone);
+  return fromZonedTime(
+    `${year}-${monthHuman}-${dayHuman} ${hoursHuman}:${minutesHuman}:00`,
+    timezone
+  );
+}
+
+function normalizeRecurrenceEndDateExclusiveUTC(
+  endDateInput: string,
+  timezone: string
+): Date {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(endDateInput)) {
+    const [yearStr, monthStr, dayStr] = endDateInput.split('-');
+    const nextDate = new Date(
+      Date.UTC(Number(yearStr), Number(monthStr) - 1, Number(dayStr) + 1)
+    );
+    const nextDateStr = formatInTimeZone(nextDate, 'UTC', 'yyyy-MM-dd');
+    return fromZonedTime(`${nextDateStr} 00:00:00`, timezone);
+  }
+
+  const parsed = parseUTCDate(endDateInput);
+  const localDate = formatInTimeZone(parsed, timezone, 'yyyy-MM-dd');
+  const [yearStr, monthStr, dayStr] = localDate.split('-');
+  const nextDate = new Date(
+    Date.UTC(Number(yearStr), Number(monthStr) - 1, Number(dayStr) + 1)
+  );
+  const nextDateStr = formatInTimeZone(nextDate, 'UTC', 'yyyy-MM-dd');
+  return fromZonedTime(`${nextDateStr} 00:00:00`, timezone);
 }
 
 /**
@@ -230,7 +245,7 @@ function calculateRecurrenceDates(
             continue;
           }
 
-          if (eventDate >= new Date() && eventDate <= effectiveEnd) {
+          if (eventDate >= new Date() && eventDate < effectiveEnd) {
             dates.push(eventDate);
           }
         }
@@ -247,7 +262,7 @@ function calculateRecurrenceDates(
         const normalizedEventDate = new Date(eventDate);
         normalizedEventDate.setSeconds(0, 0);
         if (!excludedTimes.includes(normalizedEventDate.getTime())) {
-          if (eventDate >= new Date() && eventDate <= effectiveEnd) {
+          if (eventDate >= new Date() && eventDate < effectiveEnd) {
             dates.push(eventDate);
           }
         }
@@ -350,9 +365,14 @@ export class RecurrenceService {
       dayOfMonth: data.dayOfMonth,
       timesPerDay: data.timesPerDay,
       dailyTimes: data.dailyTimes,
-      timezone: data.timezone,
+      timezone: resolveEffectiveTimezone({ userTimezone: data.timezone }),
       startDate: parseUTCDate(data.startDate),
-      endDate: data.endDate ? parseUTCDate(data.endDate) : undefined,
+      endDate: data.endDate
+        ? normalizeRecurrenceEndDateExclusiveUTC(
+            data.endDate,
+            resolveEffectiveTimezone({ userTimezone: data.timezone })
+          )
+        : undefined,
       isActive: true,
       lastGeneratedDate: new Date(),
     });
@@ -407,11 +427,15 @@ export class RecurrenceService {
     if (data.dayOfMonth !== undefined) rule.dayOfMonth = data.dayOfMonth;
     if (data.timesPerDay !== undefined) rule.timesPerDay = data.timesPerDay;
     if (data.dailyTimes !== undefined) rule.dailyTimes = data.dailyTimes;
-    if (data.timezone !== undefined) rule.timezone = data.timezone;
+    if (data.timezone !== undefined) {
+      rule.timezone = resolveEffectiveTimezone({ userTimezone: data.timezone });
+    }
     if (data.startDate !== undefined)
       rule.startDate = parseUTCDate(data.startDate);
     if (data.endDate !== undefined)
-      rule.endDate = data.endDate ? parseUTCDate(data.endDate) : undefined;
+      rule.endDate = data.endDate
+        ? normalizeRecurrenceEndDateExclusiveUTC(data.endDate, rule.timezone)
+        : undefined;
     if (data.isActive !== undefined) rule.isActive = data.isActive;
 
     await rule.save();

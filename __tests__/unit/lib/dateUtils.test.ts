@@ -175,3 +175,10 @@ describe('getUTCDateRangeForLocalDate', () => {
     });
   });
 });
+
+describe('parseUTCDate', () => {
+  it('parses ISO strings with negative UTC offset correctly', () => {
+    const parsed = parseUTCDate('2026-02-04T10:00:00-05:00');
+    expect(parsed.toISOString()).toBe('2026-02-04T15:00:00.000Z');
+  });
+});

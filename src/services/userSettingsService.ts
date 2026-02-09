@@ -8,6 +8,7 @@ import {
 import { ExchangeRateService } from './exchangeRateService';
 import { logger } from '../utils/logger';
 import { SUPPORTED_CURRENCIES, SupportedCurrency } from '../lib/constants';
+import { sanitizeTimezone } from '../lib/timezone';
 
 interface UpdateUserSettingsInput {
   baseCurrency?: SupportedCurrency;
@@ -23,15 +24,6 @@ interface UpdateUserSettingsInput {
     endHour: number;
     endMinute: number;
   };
-}
-
-function isValidTimezone(timezone: string): boolean {
-  try {
-    Intl.DateTimeFormat(undefined, { timeZone: timezone });
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 export class UserSettingsService {
@@ -69,9 +61,13 @@ export class UserSettingsService {
 
     if (
       updates.timezone !== undefined &&
-      (!updates.timezone.trim() || !isValidTimezone(updates.timezone))
+      !sanitizeTimezone(updates.timezone)
     ) {
       throw new Error('Invalid timezone. Must be a valid IANA timezone identifier');
+    }
+
+    if (updates.timezone !== undefined) {
+      updates.timezone = updates.timezone.trim();
     }
 
     if (updates.notificationsEnabled !== undefined && typeof updates.notificationsEnabled !== 'boolean') {

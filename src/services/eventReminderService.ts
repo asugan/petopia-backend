@@ -5,12 +5,10 @@ import { EventModel, UserSettingsModel } from '../models/mongoose/index.js';
 import { logger } from '../utils/logger.js';
 import { formatInTimeZone } from 'date-fns-tz';
 import { getEventReminderMessages } from '../config/notificationMessages.js';
+import { resolveEffectiveTimezone } from '../lib/timezone.js';
 
 // Pagination settings for batch processing
 const BATCH_SIZE = 100; // Process 100 events at a time
-
-// Default timezone if user settings not available
-const DEFAULT_TIMEZONE = 'UTC';
 
 // Cache for user languages to avoid repeated DB queries
 const userLanguageCache = new Map<string, string>();
@@ -295,7 +293,7 @@ export class EventReminderService {
               .select('timezone')
               .lean()
               .exec();
-            timezone = userSettings?.timezone ?? DEFAULT_TIMEZONE;
+            timezone = resolveEffectiveTimezone({ userTimezone: userSettings?.timezone });
             userTimezoneCache.set(userIdStr, timezone);
           }
 

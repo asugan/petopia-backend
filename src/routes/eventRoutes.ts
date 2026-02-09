@@ -3,6 +3,7 @@ import { EventController } from '../controllers/eventController';
 import { validateRequest } from '../middleware/validation';
 import { z } from 'zod';
 import { validateObjectId } from '../utils/mongodb-validation';
+import { isValidTimezone } from '../lib/timezone';
 
 const router = Router({ mergeParams: true });
 const eventController = new EventController();
@@ -45,7 +46,11 @@ const dateParamSchema = z.object({
 });
 
 const timezoneQuerySchema = z.object({
-  timezone: z.string().optional(),
+  timezone: z
+    .string()
+    .optional()
+    .transform((value) => value?.trim() || undefined)
+    .refine((value) => !value || isValidTimezone(value), 'Invalid IANA timezone identifier'),
 });
 
 // Routes

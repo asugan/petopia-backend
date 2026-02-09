@@ -2,6 +2,7 @@ import { HydratedDocument, QueryFilter, Types } from 'mongoose';
 import { formatInTimeZone } from 'date-fns-tz';
 import { FeedingScheduleModel, IFeedingScheduleDocument, PetModel, UserSettingsModel } from '../models/mongoose';
 import { CreateFeedingScheduleRequest, FeedingScheduleQueryParams, UpdateFeedingScheduleRequest } from '../types/api';
+import { resolveEffectiveTimezone } from '../lib/timezone';
 
 export class FeedingScheduleService {
   private dayNames = [
@@ -20,9 +21,9 @@ export class FeedingScheduleService {
         .select('timezone')
         .lean()
         .exec();
-      return settings?.timezone?.trim() || 'UTC';
+      return resolveEffectiveTimezone({ userTimezone: settings?.timezone });
     } catch {
-      return 'UTC';
+      return resolveEffectiveTimezone({});
     }
   }
 

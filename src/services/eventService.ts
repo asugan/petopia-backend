@@ -13,6 +13,7 @@ import {
   getUTCUpcomingBoundariesForTimeZone,
   parseUTCDate,
 } from '../lib/dateUtils';
+import { resolveEffectiveTimezone } from '../lib/timezone';
 
 export class EventService {
   /**
@@ -83,12 +84,10 @@ export class EventService {
       .exec();
 
     // Fix: Handle empty string timezone by checking if it's truthy after trimming
-    const effectiveTimezone =
-      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
-      clientTimezone?.trim() ||
-      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
-      settings?.timezone ||
-      'UTC';
+    const effectiveTimezone = resolveEffectiveTimezone({
+      clientTimezone,
+      userTimezone: settings?.timezone,
+    });
 
     const { start, end } = getUTCDateRangeForLocalDate(date, effectiveTimezone);
 
@@ -238,7 +237,7 @@ export class EventService {
 
     const boundaries = getUTCUpcomingBoundariesForTimeZone(
       days,
-      settings?.timezone ?? 'UTC'
+      resolveEffectiveTimezone({ userTimezone: settings?.timezone })
     );
 
     const whereClause: QueryFilter<IEventDocument> = {
@@ -269,7 +268,7 @@ export class EventService {
       .lean()
       .exec();
     const todayBoundary = getUTCTodayBoundariesForTimeZone(
-      settings?.timezone ?? 'UTC'
+      resolveEffectiveTimezone({ userTimezone: settings?.timezone })
     );
 
     const whereClause: QueryFilter<IEventDocument> = {

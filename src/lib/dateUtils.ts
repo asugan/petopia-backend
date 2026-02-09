@@ -1,4 +1,5 @@
-import { fromZonedTime } from 'date-fns-tz';
+import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
+import { resolveEffectiveTimezone } from './timezone';
 
 /**
  * Backend date utilities for consistent UTC handling
@@ -13,12 +14,24 @@ import { fromZonedTime } from 'date-fns-tz';
  * @returns Date object representing UTC time
  */
 export function parseUTCDate(dateString: string): Date {
-  // Ensure the date string is treated as UTC
-  if (!dateString.endsWith('Z') && !dateString.includes('+')) {
-    // Add Z to force UTC parsing
-    return new Date(`${dateString}Z`);
+  const value = dateString?.trim();
+  if (!value) {
+    throw new Error('Invalid date string');
   }
-  return new Date(dateString);
+
+  let normalized = value;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+    normalized = `${normalized}T00:00:00.000Z`;
+  } else if (/^\d{4}-\d{2}-\d{2}T/.test(normalized) && !/(Z|[+-]\d{2}:\d{2})$/.test(normalized)) {
+    normalized = `${normalized}Z`;
+  }
+
+  const parsed = new Date(normalized);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new Error(`Invalid date string: ${dateString}`);
+  }
+
+  return parsed;
 }
 
 /**
@@ -136,19 +149,8 @@ export function getUTCTodayBoundaries() {
 }
 
 export function formatDateInTimeZone(date: Date, timeZone: string): string {
-  let tz = timeZone || 'UTC';
-  try {
-    new Intl.DateTimeFormat('en-US', { timeZone: tz });
-  } catch {
-    tz = 'UTC';
-  }
-
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: tz,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(date);
+  const tz = resolveEffectiveTimezone({ userTimezone: timeZone });
+  return formatInTimeZone(date, tz, 'yyyy-MM-dd');
 }
 
 /**
@@ -208,13 +210,7 @@ export function getUTCDateRangeForLocalDate(
     throw new Error('Invalid date format. Expected YYYY-MM-DD');
   }
 
-  const safeTimeZone = timeZone || 'UTC';
-  let tz = safeTimeZone;
-  try {
-    new Intl.DateTimeFormat('en-US', { timeZone: tz });
-  } catch {
-    tz = 'UTC';
-  }
+  const tz = resolveEffectiveTimezone({ userTimezone: timeZone });
 
   const start = fromZonedTime(`${dateStr} 00:00:00`, tz);
 

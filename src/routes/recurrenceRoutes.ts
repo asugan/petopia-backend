@@ -4,21 +4,15 @@ import { validateRequest } from '../middleware/validation';
 import { requireInternalApiKey } from '../middleware/auth';
 import { z } from 'zod';
 import { validateObjectId } from '../utils/mongodb-validation';
+import { isValidTimezone } from '../lib/timezone';
 
 const router = Router();
 const recurrenceController = new RecurrenceController();
 
-/**
- * Validates if a string is a valid IANA timezone identifier
- */
-function isValidTimezone(tz: string): boolean {
-  try {
-    Intl.DateTimeFormat(undefined, { timeZone: tz });
-    return true;
-  } catch {
-    return false;
-  }
-}
+const dateOnlyOrDateTimeSchema = z.union([
+  z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (expected YYYY-MM-DD)'),
+  z.string().datetime('Invalid date format'),
+]);
 
 // Validation schemas
 const eventTypeEnum = z.enum([
@@ -74,12 +68,12 @@ const createRecurrenceRuleSchema = z.object({
 
   // Date boundaries
   startDate: z.string().datetime('Invalid start date format'),
-  endDate: z.string().datetime('Invalid end date format').optional(),
+  endDate: dateOnlyOrDateTimeSchema.optional(),
 });
 
 const updateRecurrenceRuleSchema = createRecurrenceRuleSchema.partial().extend({
   isActive: z.boolean().optional(),
-  endDate: z.string().datetime('Invalid end date format').nullable().optional(),
+  endDate: dateOnlyOrDateTimeSchema.nullable().optional(),
 });
 
 const addExceptionSchema = z.object({
