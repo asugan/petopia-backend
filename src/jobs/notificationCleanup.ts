@@ -1,4 +1,5 @@
 import { ScheduledNotificationModel } from '../models/mongoose/scheduledNotifications.js';
+import { FeedingNotificationModel } from '../models/mongoose/feedingNotification.js';
 import { logger } from '../utils/logger.js';
 
 // How many days to keep sent notification records
@@ -24,11 +25,18 @@ export async function cleanupOldNotifications(): Promise<CleanupResult> {
     sentAt: { $lt: cutoffDate },
   });
 
-  if (result.deletedCount > 0) {
+  const feedingResult = await FeedingNotificationModel.deleteMany({
+    status: { $in: ['sent', 'failed', 'cancelled'] },
+    updatedAt: { $lt: cutoffDate },
+  });
+
+  const totalDeleted = result.deletedCount + feedingResult.deletedCount;
+
+  if (totalDeleted > 0) {
     logger.info(
-      `Cleaned up ${result.deletedCount} old notification records (older than ${RETENTION_DAYS} days)`
+      `Cleaned up ${totalDeleted} old notification records (older than ${RETENTION_DAYS} days)`
     );
   }
 
-  return { deleted: result.deletedCount };
+  return { deleted: totalDeleted };
 }

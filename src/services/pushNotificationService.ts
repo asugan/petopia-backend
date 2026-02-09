@@ -7,6 +7,7 @@ import {
 } from '../config/expoPushConfig.js';
 import { logger } from '../utils/logger.js';
 import { UserDeviceModel } from '../models/mongoose/userDevices.js';
+import { createError } from '../middleware/errorHandler.js';
 
 // Expo API limits
 const EXPO_BATCH_SIZE = 100; // Expo allows max 100 messages per request
@@ -270,8 +271,26 @@ export class PushNotificationService {
     deviceName?: string,
     appVersion?: string
   ): Promise<void> {
+    const existingDevice = await UserDeviceModel.findOne({ deviceId })
+      .select('userId')
+      .lean()
+      .exec();
+
+    if (existingDevice && existingDevice.userId.toString() !== userId) {
+      throw createError('Device ID already belongs to another user', 409, 'DEVICE_OWNERSHIP_CONFLICT');
+    }
+
+    const existingToken = await UserDeviceModel.findOne({ expoPushToken, isActive: true })
+      .select('userId deviceId')
+      .lean()
+      .exec();
+
+    if (existingToken && existingToken.userId.toString() !== userId && existingToken.deviceId !== deviceId) {
+      throw createError('Push token already belongs to another user', 409, 'TOKEN_OWNERSHIP_CONFLICT');
+    }
+
     await UserDeviceModel.findOneAndUpdate(
-      { deviceId },
+      { deviceId, userId: new Types.ObjectId(userId) },
       {
         userId: new Types.ObjectId(userId),
         expoPushToken,

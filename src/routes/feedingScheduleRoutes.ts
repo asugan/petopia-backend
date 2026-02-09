@@ -73,6 +73,16 @@ router.post(
         return;
       }
 
+      const schedule = await FeedingScheduleModel.findOne({ _id: id, userId })
+        .select('_id')
+        .lean()
+        .exec();
+
+      if (!schedule) {
+        res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Feeding schedule not found' } });
+        return;
+      }
+
       const result = await feedingReminderService.sendFeedingReminder(id, userId);
 
       if (!result.success) {
@@ -156,6 +166,16 @@ router.post(
         return;
       }
 
+      const schedule = await FeedingScheduleModel.findOne({ _id: id, userId })
+        .select('_id')
+        .lean()
+        .exec();
+
+      if (!schedule) {
+        res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Feeding schedule not found' } });
+        return;
+      }
+
       const result = await feedingReminderService.markFeedingCompleted(toString(id), userId);
 
       if (!result.success) {
@@ -167,6 +187,40 @@ router.post(
     } catch (error) {
       logger.error('Error marking feeding as completed:', error);
       res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: 'Failed to mark feeding as completed' } });
+    }
+  }
+);
+
+// DELETE /:id/reminder - Cancel pending reminder notifications for a schedule
+router.delete(
+  '/:id/reminder',
+  validateObjectId(),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      const id = toString(req.params.id);
+
+      if (!userId) {
+        res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'User not authenticated' } });
+        return;
+      }
+
+      if (!id) {
+        res.status(400).json({ success: false, error: { code: 'BAD_REQUEST', message: 'Schedule ID is required' } });
+        return;
+      }
+
+      const result = await feedingReminderService.cancelFeedingRemindersForUser(id, userId);
+      if (!result.success) {
+        const statusCode = result.error === 'Feeding schedule not found' ? 404 : 500;
+        res.status(statusCode).json({ success: false, error: { code: 'CANCEL_FAILED', message: result.error } });
+        return;
+      }
+
+      res.json({ success: true, data: { message: 'Reminders cancelled' } });
+    } catch (error) {
+      logger.error('Error cancelling feeding reminder:', error);
+      res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: 'Failed to cancel reminder' } });
     }
   }
 );

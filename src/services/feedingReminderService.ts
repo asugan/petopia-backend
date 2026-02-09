@@ -49,6 +49,20 @@ interface UserQuietHoursSettings {
  * Handles scheduling and sending feeding reminder push notifications with i18n support
  */
 export class FeedingReminderService {
+  private async assertScheduleOwnership(scheduleId: string, userId: string): Promise<void> {
+    const schedule = await FeedingScheduleModel.findOne({
+      _id: new Types.ObjectId(scheduleId),
+      userId: new Types.ObjectId(userId),
+    })
+      .select('_id')
+      .lean()
+      .exec();
+
+    if (!schedule) {
+      throw new Error('Feeding schedule not found');
+    }
+  }
+
   /**
    * Schedule a feeding reminder for a specific schedule
    */
@@ -165,9 +179,11 @@ export class FeedingReminderService {
    */
   async markFeedingCompleted(
     scheduleId: string,
-    _userId: string
+    userId: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
+      await this.assertScheduleOwnership(scheduleId, userId);
+
       // Cancel pending reminders
       await this.cancelFeedingReminders(scheduleId);
 
@@ -193,7 +209,10 @@ export class FeedingReminderService {
     userId: string
   ): Promise<FeedingReminderResult> {
     try {
-      const schedule = await FeedingScheduleModel.findById(scheduleId);
+      const schedule = await FeedingScheduleModel.findOne({
+        _id: new Types.ObjectId(scheduleId),
+        userId: new Types.ObjectId(userId),
+      });
       if (!schedule) {
         return { success: false, scheduledCount: 0, error: 'Schedule not found' };
       }
@@ -337,6 +356,25 @@ export class FeedingReminderService {
     });
 
     return result;
+  }
+
+  async cancelFeedingRemindersForUser(
+    scheduleId: string,
+    userId: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      await this.assertScheduleOwnership(scheduleId, userId);
+      const cancelled = await this.cancelFeedingReminders(scheduleId);
+      if (!cancelled) {
+        return { success: false, error: 'Failed to cancel reminders' };
+      }
+
+      return { success: true };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Error cancelling feeding reminders:', error);
+      return { success: false, error: errorMessage };
+    }
   }
 
   /**

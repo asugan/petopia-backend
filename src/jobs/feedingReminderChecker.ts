@@ -22,6 +22,9 @@ const BATCH_LIMIT = parseInt(process.env.FEEDING_REMINDER_BATCH_LIMIT ?? '100', 
 
 // Max retry attempts for failed notifications
 const MAX_RETRY_ATTEMPTS = parseInt(process.env.FEEDING_REMINDER_MAX_RETRIES ?? '3', 10);
+const LEASE_DURATION_MS = parseInt(process.env.FEEDING_REMINDER_LEASE_MS ?? '900000', 10);
+const RETRY_BASE_DELAY_MS = parseInt(process.env.FEEDING_REMINDER_RETRY_BASE_DELAY_MS ?? '60000', 10);
+const checkerOwnerId = `${process.pid}-${Math.random().toString(36).slice(2, 10)}`;
 
 interface CachedUserNotificationSettings {
   language: string;
@@ -78,13 +81,39 @@ export async function checkFeedingReminders(): Promise<{
   try {
     const now = new Date();
 
-    // Find all pending notifications that are due, with configurable batch limit
-    const pendingNotifications = await FeedingNotificationModel.find({
+    const pendingCandidates = await FeedingNotificationModel.find({
       status: 'pending',
       scheduledFor: { $lte: now },
     })
+      .select('_id')
       .limit(BATCH_LIMIT)
       .lean();
+
+    const pendingNotifications = [];
+    for (const candidate of pendingCandidates) {
+      const claimed = await FeedingNotificationModel.findOneAndUpdate(
+        {
+          _id: candidate._id,
+          status: 'pending',
+          scheduledFor: { $lte: now },
+          $or: [{ leaseExpiresAt: { $exists: false } }, { leaseExpiresAt: { $lte: now } }],
+        },
+        {
+          $set: {
+            status: 'processing',
+            leaseOwner: checkerOwnerId,
+            leaseExpiresAt: new Date(now.getTime() + LEASE_DURATION_MS),
+          },
+        },
+        { new: true }
+      )
+        .lean()
+        .exec();
+
+      if (claimed) {
+        pendingNotifications.push(claimed);
+      }
+    }
 
     if (pendingNotifications.length === 0) {
       logger.info('[Feeding Reminder Checker] No pending notifications found');
@@ -120,6 +149,7 @@ export async function checkFeedingReminders(): Promise<{
         if (!schedule || !schedule.isActive || !schedule.remindersEnabled) {
           await FeedingNotificationModel.findByIdAndUpdate(notification._id, {
             $set: { status: 'cancelled' },
+            $unset: { leaseOwner: '', leaseExpiresAt: '' },
           });
           continue;
         }
@@ -129,6 +159,7 @@ export async function checkFeedingReminders(): Promise<{
         if (!pet) {
           await FeedingNotificationModel.findByIdAndUpdate(notification._id, {
             $set: { status: 'failed', errorMessage: 'Pet not found' },
+            $unset: { leaseOwner: '', leaseExpiresAt: '' },
           });
           failed++;
           continue;
@@ -159,6 +190,7 @@ export async function checkFeedingReminders(): Promise<{
         if (!cachedSettings.notificationsEnabled || !cachedSettings.feedingRemindersEnabled) {
             await FeedingNotificationModel.findByIdAndUpdate(notification._id, {
               $set: { status: 'cancelled' },
+              $unset: { leaseOwner: '', leaseExpiresAt: '' },
             });
           continue;
         }
@@ -178,6 +210,7 @@ export async function checkFeedingReminders(): Promise<{
               status: 'pending',
               scheduledFor: deferredUntil,
             },
+            $unset: { leaseOwner: '', leaseExpiresAt: '' },
           });
           continue;
         }
@@ -214,6 +247,7 @@ export async function checkFeedingReminders(): Promise<{
               sentAt: new Date(),
               notificationId: `feeding-${notification._id.toString()}`,
             },
+            $unset: { leaseOwner: '', leaseExpiresAt: '' },
           });
 
           // Update schedule's last notification time
@@ -227,14 +261,22 @@ export async function checkFeedingReminders(): Promise<{
           await scheduleNextReminder(schedule as FeedingScheduleForReminder);
         } else if (retryCount < MAX_RETRY_ATTEMPTS) {
           // Retry logic: increment retry count and reschedule
+          const nextRetryAt = new Date(
+            Date.now() + RETRY_BASE_DELAY_MS * Math.pow(2, retryCount)
+          );
           await FeedingNotificationModel.findByIdAndUpdate(notification._id, {
             $inc: { retryCount: 1 },
-            $set: { status: 'pending' },
+            $set: {
+              status: 'pending',
+              scheduledFor: nextRetryAt,
+            },
+            $unset: { leaseOwner: '', leaseExpiresAt: '' },
           });
           retried++;
         } else {
           await FeedingNotificationModel.findByIdAndUpdate(notification._id, {
             $set: { status: 'failed', errorMessage: 'Max retries exceeded' },
+            $unset: { leaseOwner: '', leaseExpiresAt: '' },
           });
           failed++;
         }
@@ -251,6 +293,7 @@ export async function checkFeedingReminders(): Promise<{
         logger.error(`Error processing feeding notification ${notification._id.toString()}:`, error);
         await FeedingNotificationModel.findByIdAndUpdate(notification._id, {
           $set: { status: 'failed', errorMessage: String(error) },
+          $unset: { leaseOwner: '', leaseExpiresAt: '' },
         });
         failed++;
       }

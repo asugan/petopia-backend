@@ -145,7 +145,8 @@ app.get('/', (_req: Request, res: Response) => {
 app.use('/api', apiRoutes);
 
 // Initialize job scheduler (runs in background, doesn't block server)
-if (process.env.NODE_ENV !== 'test') {
+const schedulerEnabled = process.env.SCHEDULER_ENABLED !== 'false';
+if (process.env.NODE_ENV !== 'test' && schedulerEnabled) {
   initializeScheduler();
 }
 

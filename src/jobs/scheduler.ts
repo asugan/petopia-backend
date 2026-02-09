@@ -6,9 +6,20 @@ import { checkBudgetAlerts } from './budgetAlertChecker.js';
 import { checkFeedingReminders } from './feedingReminderChecker.js';
 import { cleanupOldNotifications } from './notificationCleanup.js';
 import { logger } from '../utils/logger.js';
+import { runWithDistributedJobLock } from './distributedJobLock.js';
 
 let scheduledJobs: ScheduledTask[] = [];
 let isShuttingDown = false;
+
+const withJobLock = async <T>(jobName: string, fn: () => Promise<T>): Promise<T | null> => {
+  const lock = await runWithDistributedJobLock(`scheduler:${jobName}`, fn);
+  if (!lock.acquired) {
+    logger.info(`[Scheduler] ${jobName} skipped because another instance owns the lock`);
+    return null;
+  }
+
+  return lock.result ?? null;
+};
 
 /**
  * Initialize all scheduled jobs
@@ -32,7 +43,10 @@ export function initializeScheduler(): void {
     async () => {
       logger.info('[Scheduler] Running recurrence generator job...');
       try {
-        const result = await runRecurrenceGenerator();
+        const result = await withJobLock('recurrence-generator', runRecurrenceGenerator);
+        if (!result) {
+          return;
+        }
         logger.info(
           `[Scheduler] Recurrence generator completed: ${result.rulesProcessed} rules processed, ${result.eventsCreated} events created`
         );
@@ -53,8 +67,13 @@ export function initializeScheduler(): void {
     async () => {
       logger.info('[Scheduler] Running reminder scheduler job...');
       try {
-        const result =
-          await eventReminderService.scheduleAllUpcomingReminders();
+        const result = await withJobLock(
+          'reminder-scheduler',
+          () => eventReminderService.scheduleAllUpcomingReminders()
+        );
+        if (!result) {
+          return;
+        }
         logger.info(
           `[Scheduler] Reminder scheduler completed: ${result.eventsProcessed} events, ${result.remindersScheduled} reminders`
         );
@@ -75,7 +94,10 @@ export function initializeScheduler(): void {
     async () => {
       logger.info('[Scheduler] Running missed event checker job...');
       try {
-        const count = await markMissedEvents();
+        const count = await withJobLock('missed-event-checker', markMissedEvents);
+        if (count === null) {
+          return;
+        }
         if (count > 0) {
           logger.info(`[Scheduler] Marked ${count} events as missed`);
         }
@@ -96,7 +118,10 @@ export function initializeScheduler(): void {
     async () => {
       logger.info('[Scheduler] Running budget alert checker job...');
       try {
-        const result = await checkBudgetAlerts();
+        const result = await withJobLock('budget-alert-checker', checkBudgetAlerts);
+        if (!result) {
+          return;
+        }
         logger.info(
           `[Scheduler] Budget alert checker completed: ${result.processed} processed, ${result.sent} sent, ${result.failed} failed`
         );
@@ -117,7 +142,10 @@ export function initializeScheduler(): void {
     async () => {
       logger.info('[Scheduler] Running feeding reminder checker job...');
       try {
-        const result = await checkFeedingReminders();
+        const result = await withJobLock('feeding-reminder-checker', checkFeedingReminders);
+        if (!result) {
+          return;
+        }
         logger.info(
           `[Scheduler] Feeding reminder checker completed: ${result.checked} checked, ${result.sent} sent, ${result.failed} failed, ${result.retried} retried`
         );
@@ -138,7 +166,10 @@ export function initializeScheduler(): void {
     async () => {
       logger.info('[Scheduler] Running notification cleanup job...');
       try {
-        const result = await cleanupOldNotifications();
+        const result = await withJobLock('notification-cleanup', cleanupOldNotifications);
+        if (!result) {
+          return;
+        }
         if (result.deleted > 0) {
           logger.info(
             `[Scheduler] Notification cleanup completed: ${result.deleted} records deleted`

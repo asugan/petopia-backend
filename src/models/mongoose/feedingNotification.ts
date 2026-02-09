@@ -7,12 +7,14 @@ export interface IFeedingNotificationDocument extends Document {
   petId: Types.ObjectId;
   scheduledFor: Date;
   sentAt?: Date;
-  status: 'pending' | 'sent' | 'failed' | 'cancelled';
+  status: 'pending' | 'processing' | 'sent' | 'failed' | 'cancelled';
   expoPushToken: string;
   notificationId?: string;
   errorMessage?: string;
   retryCount?: number;
   maxRetries?: number;
+  leaseOwner?: string;
+  leaseExpiresAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -25,7 +27,7 @@ const feedingNotificationSchema = new Schema<IFeedingNotificationDocument>({
   sentAt: { type: Date },
   status: {
     type: String,
-    enum: ['pending', 'sent', 'failed', 'cancelled'],
+    enum: ['pending', 'processing', 'sent', 'failed', 'cancelled'],
     default: 'pending',
     index: true,
   },
@@ -34,6 +36,8 @@ const feedingNotificationSchema = new Schema<IFeedingNotificationDocument>({
   errorMessage: { type: String },
   retryCount: { type: Number, default: 0 },
   maxRetries: { type: Number, default: 3 },
+  leaseOwner: { type: String },
+  leaseExpiresAt: { type: Date, index: true },
 }, {
   timestamps: true,
 });
@@ -41,6 +45,7 @@ const feedingNotificationSchema = new Schema<IFeedingNotificationDocument>({
 // Compound indexes for efficient queries
 feedingNotificationSchema.index({ userId: 1, status: 1, scheduledFor: 1 });
 feedingNotificationSchema.index({ scheduleId: 1, status: 1 });
+feedingNotificationSchema.index({ status: 1, scheduledFor: 1, leaseExpiresAt: 1 });
 
 // Unique compound index to prevent duplicate notifications for the same schedule at the same time
 feedingNotificationSchema.index(
