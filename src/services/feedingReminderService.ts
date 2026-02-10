@@ -1,6 +1,12 @@
 import { Types } from 'mongoose';
 import { pushNotificationService } from './pushNotificationService.js';
-import { FeedingNotificationModel, FeedingScheduleModel, PetModel, UserDeviceModel, UserSettingsModel } from '../models/mongoose/index.js';
+import {
+  FeedingNotificationModel,
+  FeedingScheduleModel,
+  PetModel,
+  UserDeviceModel,
+  UserSettingsModel,
+} from '../models/mongoose/index.js';
 import { getFeedingReminderMessages } from '../config/notificationMessages.js';
 import { logger } from '../utils/logger.js';
 import { calculateNextFeedingTime } from '../lib/feedingReminderTime.js';
@@ -49,7 +55,10 @@ interface UserQuietHoursSettings {
  * Handles scheduling and sending feeding reminder push notifications with i18n support
  */
 export class FeedingReminderService {
-  private async assertScheduleOwnership(scheduleId: string, userId: string): Promise<void> {
+  private async assertScheduleOwnership(
+    scheduleId: string,
+    userId: string
+  ): Promise<void> {
     const schedule = await FeedingScheduleModel.findOne({
       _id: new Types.ObjectId(scheduleId),
       userId: new Types.ObjectId(userId),
@@ -66,20 +75,36 @@ export class FeedingReminderService {
   /**
    * Schedule a feeding reminder for a specific schedule
    */
-  async scheduleFeedingReminder(config: FeedingReminderConfig): Promise<FeedingReminderResult> {
-    const { scheduleId, userId, time, days, reminderMinutesBefore, timezone: configTimezone } = config;
+  async scheduleFeedingReminder(
+    config: FeedingReminderConfig
+  ): Promise<FeedingReminderResult> {
+    const {
+      scheduleId,
+      userId,
+      time,
+      days,
+      reminderMinutesBefore,
+      timezone: configTimezone,
+    } = config;
 
     const timezone = await resolveUserTimezone(userId, configTimezone);
 
     const userSettings = await UserSettingsModel.findOne({
       userId: new Types.ObjectId(userId),
     })
-      .select('notificationsEnabled feedingRemindersEnabled quietHoursEnabled quietHours')
+      .select(
+        'notificationsEnabled feedingRemindersEnabled quietHoursEnabled quietHours'
+      )
       .lean()
       .exec();
 
-    if (!userSettings?.notificationsEnabled || !userSettings?.feedingRemindersEnabled) {
-      logger.info(`Feeding reminders disabled for user ${userId}, skipping schedule ${scheduleId}`);
+    if (
+      !userSettings?.notificationsEnabled ||
+      !userSettings?.feedingRemindersEnabled
+    ) {
+      logger.info(
+        `Feeding reminders disabled for user ${userId}, skipping schedule ${scheduleId}`
+      );
       return { success: true, scheduledCount: 0 };
     }
 
@@ -87,7 +112,9 @@ export class FeedingReminderService {
     const devices = await UserDeviceModel.find({
       userId: new Types.ObjectId(userId),
       isActive: true,
-    }).select('expoPushToken').lean();
+    })
+      .select('expoPushToken')
+      .lean();
 
     if (devices.length === 0) {
       logger.info(`No active devices found for user ${userId}`);
@@ -103,19 +130,27 @@ export class FeedingReminderService {
     }
 
     // Calculate when to send the reminder
-    const baseReminderTime = new Date(nextFeedingTime.getTime() - reminderMinutesBefore * 60 * 1000);
+    const baseReminderTime = new Date(
+      nextFeedingTime.getTime() - reminderMinutesBefore * 60 * 1000
+    );
     const quietHoursSettings: UserQuietHoursSettings = {
       quietHoursEnabled: userSettings?.quietHoursEnabled ?? true,
       quietHours: userSettings?.quietHours ?? DEFAULT_QUIET_HOURS,
     };
 
     const reminderTime = quietHoursSettings.quietHoursEnabled
-      ? getNextAllowedTime(baseReminderTime, timezone, quietHoursSettings.quietHours)
+      ? getNextAllowedTime(
+          baseReminderTime,
+          timezone,
+          quietHoursSettings.quietHours
+        )
       : baseReminderTime;
 
     // Don't schedule if reminder time is in the past
     if (reminderTime <= new Date()) {
-      logger.info(`Reminder time ${reminderTime.toISOString()} is in the past, skipping`);
+      logger.info(
+        `Reminder time ${reminderTime.toISOString()} is in the past, skipping`
+      );
       return { success: true, scheduledCount: 0 };
     }
 
@@ -145,7 +180,9 @@ export class FeedingReminderService {
       { upsert: true, new: true }
     );
 
-    logger.info(`Scheduled feeding reminder for schedule ${scheduleId} at ${reminderTime.toISOString()}`);
+    logger.info(
+      `Scheduled feeding reminder for schedule ${scheduleId} at ${reminderTime.toISOString()}`
+    );
 
     return { success: true, scheduledCount: 1 };
   }
@@ -169,7 +206,10 @@ export class FeedingReminderService {
       logger.info(`Cancelled feeding reminders for schedule ${scheduleId}`);
       return true;
     } catch (error) {
-      logger.error(`Error cancelling feeding reminders for schedule ${scheduleId}:`, error);
+      logger.error(
+        `Error cancelling feeding reminders for schedule ${scheduleId}:`,
+        error
+      );
       return false;
     }
   }
@@ -195,7 +235,8 @@ export class FeedingReminderService {
       logger.info(`Feeding marked as completed for schedule ${scheduleId}`);
       return { success: true };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
       logger.error(`Error marking feeding as completed:`, error);
       return { success: false, error: errorMessage };
     }
@@ -214,23 +255,35 @@ export class FeedingReminderService {
         userId: new Types.ObjectId(userId),
       });
       if (!schedule) {
-        return { success: false, scheduledCount: 0, error: 'Schedule not found' };
+        return {
+          success: false,
+          scheduledCount: 0,
+          error: 'Schedule not found',
+        };
       }
 
       const userSettings = await UserSettingsModel.findOne({
         userId: new Types.ObjectId(userId),
       })
-        .select('notificationsEnabled feedingRemindersEnabled quietHoursEnabled quietHours timezone')
+        .select(
+          'notificationsEnabled feedingRemindersEnabled quietHoursEnabled quietHours timezone'
+        )
         .lean()
         .exec();
 
-      if (!userSettings?.notificationsEnabled || !userSettings?.feedingRemindersEnabled) {
+      if (
+        !userSettings?.notificationsEnabled ||
+        !userSettings?.feedingRemindersEnabled
+      ) {
         return { success: true, scheduledCount: 0 };
       }
 
       const timezone = userSettings?.timezone ?? 'UTC';
       const quietHours = userSettings?.quietHours ?? DEFAULT_QUIET_HOURS;
-      if ((userSettings?.quietHoursEnabled ?? true) && isInQuietHours(new Date(), timezone, quietHours)) {
+      if (
+        (userSettings?.quietHoursEnabled ?? true) &&
+        isInQuietHours(new Date(), timezone, quietHours)
+      ) {
         return { success: true, scheduledCount: 0 };
       }
 
@@ -244,20 +297,25 @@ export class FeedingReminderService {
       const devices = await UserDeviceModel.find({
         userId: new Types.ObjectId(userId),
         isActive: true,
-      }).select('expoPushToken').lean();
+      })
+        .select('expoPushToken')
+        .lean();
 
       if (devices.length === 0) {
         return { success: true, scheduledCount: 0 };
       }
 
-      const tokens = devices.map(d => d.expoPushToken);
+      const tokens = [...new Set(devices.map(d => d.expoPushToken))];
 
       // Get user's language preference
       let userLanguage = userLanguageCache.get(userId);
       if (userLanguage === undefined) {
         const userSettings = await UserSettingsModel.findOne({
           userId: new Types.ObjectId(userId),
-        }).select('language').lean().exec();
+        })
+          .select('language')
+          .lean()
+          .exec();
         userLanguage = userSettings?.language ?? 'en';
         userLanguageCache.set(userId, userLanguage);
       }
@@ -313,11 +371,13 @@ export class FeedingReminderService {
         $set: { lastNotificationAt: new Date() },
       });
 
-      logger.info(`Feeding reminder sent for schedule ${scheduleId}: ${sentCount} notifications`);
+      logger.info(
+        `Feeding reminder sent for schedule ${scheduleId}: ${sentCount} notifications`
+      );
       return { success: true, scheduledCount: sentCount };
-
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
       logger.error(`Error sending feeding reminder:`, error);
       return { success: false, scheduledCount: 0, error: errorMessage };
     }
@@ -326,15 +386,16 @@ export class FeedingReminderService {
   /**
    * Get notifications for a feeding schedule
    */
-  async getScheduleNotifications(
-    scheduleId: string
-  ): Promise<{
+  async getScheduleNotifications(scheduleId: string): Promise<{
     pending: number;
     sent: number;
     failed: number;
     cancelled: number;
   }> {
-    const counts = await FeedingNotificationModel.aggregate<{ _id: string; count: number }>([
+    const counts = await FeedingNotificationModel.aggregate<{
+      _id: string;
+      count: number;
+    }>([
       { $match: { scheduleId: new Types.ObjectId(scheduleId) } },
       {
         $group: {
@@ -371,7 +432,8 @@ export class FeedingReminderService {
 
       return { success: true };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
       logger.error('Error cancelling feeding reminders:', error);
       return { success: false, error: errorMessage };
     }
@@ -393,11 +455,17 @@ export class FeedingReminderService {
   /**
    * Get all active schedules with reminders enabled
    */
-  async getActiveSchedulesWithReminders(): Promise<typeof FeedingScheduleModel.prototype._id[]> {
+  async getActiveSchedulesWithReminders(): Promise<
+    (typeof FeedingScheduleModel.prototype._id)[]
+  > {
     const schedules = await FeedingScheduleModel.find({
       isActive: true,
       remindersEnabled: true,
-    }).select('_id userId petId time foodType amount days reminderMinutesBefore').lean();
+    })
+      .select(
+        '_id userId petId time foodType amount days reminderMinutesBefore'
+      )
+      .lean();
 
     return schedules;
   }

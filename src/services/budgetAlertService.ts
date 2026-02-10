@@ -5,7 +5,10 @@ import { UserDeviceModel } from '../models/mongoose/userDevices.js';
 import { ExpenseModel, UserSettingsModel } from '../models/mongoose/index.js';
 import { getBudgetAlertMessages } from '../config/notificationMessages.js';
 import { logger } from '../utils/logger.js';
-import { getCurrentUTCMonthRange, getUTCMonthPeriodKey } from '../lib/dateUtils.js';
+import {
+  getCurrentUTCMonthRange,
+  getUTCMonthPeriodKey,
+} from '../lib/dateUtils.js';
 import {
   NOTIFICATION_CHANNELS,
   NOTIFICATION_ENTITY_TYPES,
@@ -53,17 +56,21 @@ export class BudgetAlertService {
       const devices = await UserDeviceModel.find({
         userId: new Types.ObjectId(userId),
         isActive: true,
-      }).select('expoPushToken').lean();
+      })
+        .select('expoPushToken')
+        .lean();
 
       if (devices.length === 0) {
         logger.info(`No active devices found for user ${userId}`);
         return { userId, success: true, sentCount: 0 };
       }
 
-      const tokens = devices.map(d => d.expoPushToken);
+      const tokens = [...new Set(devices.map(d => d.expoPushToken))];
 
       // Format currency for notification
-      const budget = await UserBudgetModel.findOne({ userId: new Types.ObjectId(userId) }).exec();
+      const budget = await UserBudgetModel.findOne({
+        userId: new Types.ObjectId(userId),
+      }).exec();
       const currency = budget?.currency ?? 'USD';
       const remaining = budgetAmount - currentSpending;
 
@@ -78,8 +85,13 @@ export class BudgetAlertService {
       const quietHoursEnabled = userSettings?.quietHoursEnabled ?? true;
       const quietHours = userSettings?.quietHours ?? DEFAULT_QUIET_HOURS;
 
-      if (quietHoursEnabled && isInQuietHours(new Date(), userTimezone, quietHours)) {
-        logger.info(`Budget alert for user ${userId} deferred due to quiet hours`);
+      if (
+        quietHoursEnabled &&
+        isInQuietHours(new Date(), userTimezone, quietHours)
+      ) {
+        logger.info(
+          `Budget alert for user ${userId} deferred due to quiet hours`
+        );
         return { userId, success: true, sentCount: 0 };
       }
 
@@ -94,22 +106,24 @@ export class BudgetAlertService {
       const messages = getBudgetAlertMessages(userLanguage);
 
       // Use i18n-enabled message templates
-      const title = severity === 'critical' 
-        ? messages.critical.title 
-        : messages.warning.title;
+      const title =
+        severity === 'critical'
+          ? messages.critical.title
+          : messages.warning.title;
 
-      const body = severity === 'critical'
-        ? messages.critical.body({
-            currency,
-            exceeded: Math.abs(remaining),
-            current: currentSpending,
-            budget: budgetAmount,
-          })
-        : messages.warning.body({
-            percentage,
-            currency,
-            remaining,
-          });
+      const body =
+        severity === 'critical'
+          ? messages.critical.body({
+              currency,
+              exceeded: Math.abs(remaining),
+              current: currentSpending,
+              budget: budgetAmount,
+            })
+          : messages.warning.body({
+              percentage,
+              currency,
+              remaining,
+            });
 
       const result = await pushNotificationService.sendNotifications(tokens, {
         title,
@@ -144,14 +158,18 @@ export class BudgetAlertService {
           { expoPushToken: { $in: tokensToRemove } },
           { $set: { isActive: false } }
         );
-        logger.info(`Deactivated ${tokensToRemove.length} invalid push tokens for user ${userId}`);
+        logger.info(
+          `Deactivated ${tokensToRemove.length} invalid push tokens for user ${userId}`
+        );
       }
 
-      logger.info(`Budget alert sent to user ${userId}: ${sentCount} notifications, severity: ${severity}`);
+      logger.info(
+        `Budget alert sent to user ${userId}: ${sentCount} notifications, severity: ${severity}`
+      );
       return { userId, success: true, sentCount };
-
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
       logger.error(`Error sending budget alert to user ${userId}:`, error);
       return { userId, success: false, sentCount: 0, error: errorMessage };
     }
@@ -186,11 +204,16 @@ export class BudgetAlertService {
         const userSettings = await UserSettingsModel.findOne({
           userId: budget.userId,
         })
-          .select('notificationsEnabled budgetNotificationsEnabled timezone quietHoursEnabled quietHours')
+          .select(
+            'notificationsEnabled budgetNotificationsEnabled timezone quietHoursEnabled quietHours'
+          )
           .lean()
           .exec();
 
-        if (!userSettings?.notificationsEnabled || !userSettings?.budgetNotificationsEnabled) {
+        if (
+          !userSettings?.notificationsEnabled ||
+          !userSettings?.budgetNotificationsEnabled
+        ) {
           processed++;
           continue;
         }
@@ -198,7 +221,10 @@ export class BudgetAlertService {
         const userTimezone = userSettings?.timezone ?? 'UTC';
         const quietHoursEnabled = userSettings?.quietHoursEnabled ?? true;
         const quietHours = userSettings?.quietHours ?? DEFAULT_QUIET_HOURS;
-        if (quietHoursEnabled && isInQuietHours(referenceDate, userTimezone, quietHours)) {
+        if (
+          quietHoursEnabled &&
+          isInQuietHours(referenceDate, userTimezone, quietHours)
+        ) {
           processed++;
           continue;
         }
@@ -227,7 +253,8 @@ export class BudgetAlertService {
           budget.currency,
           referenceDate
         );
-        const percentage = budget.amount > 0 ? (currentSpending / budget.amount) * 100 : 0;
+        const percentage =
+          budget.amount > 0 ? (currentSpending / budget.amount) * 100 : 0;
         const isExceeded = percentage >= 100;
         const severity = isExceeded ? 'critical' : 'warning';
 
@@ -239,7 +266,9 @@ export class BudgetAlertService {
 
         // Double-check: if we already sent this severity for this period, skip
         // This handles race conditions between concurrent job runs
-        const reCheckDoc = await UserBudgetModel.findById(budget._id).select('lastAlertPeriod lastAlertSeverity').exec();
+        const reCheckDoc = await UserBudgetModel.findById(budget._id)
+          .select('lastAlertPeriod lastAlertSeverity')
+          .exec();
         if (
           reCheckDoc?.lastAlertPeriod === periodKey &&
           reCheckDoc?.lastAlertSeverity === severity
@@ -272,15 +301,19 @@ export class BudgetAlertService {
         }
 
         processed++;
-
       } catch (error) {
-        logger.error(`Error processing budget for user ${budget.userId.toString()}:`, error);
+        logger.error(
+          `Error processing budget for user ${budget.userId.toString()}:`,
+          error
+        );
         failed++;
         processed++;
       }
     }
 
-    logger.info(`Budget alert job completed: ${processed} processed, ${sent} sent, ${failed} failed`);
+    logger.info(
+      `Budget alert job completed: ${processed} processed, ${sent} sent, ${failed} failed`
+    );
     return { processed, sent, failed };
   }
 
@@ -327,7 +360,9 @@ export class BudgetAlertService {
     severity?: 'warning' | 'critical';
     lastAlertAt?: Date;
   }> {
-    const budget = await UserBudgetModel.findOne({ userId: new Types.ObjectId(userId) }).exec();
+    const budget = await UserBudgetModel.findOne({
+      userId: new Types.ObjectId(userId),
+    }).exec();
 
     if (!budget) {
       return { hasAlert: false, percentage: 0 };

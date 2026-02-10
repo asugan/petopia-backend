@@ -17,8 +17,11 @@ export const expoPushConfig: ExpoPushConfig = {
 
 export const EXPO_PUSH_API_URL = 'https://exp.host/--/api/v2/push/send';
 
+export const EXPO_PUSH_TOKEN_REGEX =
+  /^(ExponentPushToken|ExpoPushToken)\[[A-Za-z0-9_-]+\]$/;
+
 export const EXPO_PUSH_ERRORS = {
-  DEVICE_NOT_REGISTRED: 'DeviceNotRegistered',
+  DEVICE_NOT_REGISTERED: 'DeviceNotRegistered',
   INVALID_CREDENTIALS: 'InvalidCredentials',
   MESSAGE_TOO_BIG: 'MessageTooBig',
   QUOTA_EXCEEDED: 'QuotaExceeded',
@@ -26,7 +29,13 @@ export const EXPO_PUSH_ERRORS = {
 } as const;
 
 export function isExpoPushErrorCode(code: string): boolean {
-  return Object.values(EXPO_PUSH_ERRORS).includes(code as typeof EXPO_PUSH_ERRORS[keyof typeof EXPO_PUSH_ERRORS]);
+  return Object.values(EXPO_PUSH_ERRORS).includes(
+    code as (typeof EXPO_PUSH_ERRORS)[keyof typeof EXPO_PUSH_ERRORS]
+  );
+}
+
+export function isValidExpoPushToken(token: string): boolean {
+  return EXPO_PUSH_TOKEN_REGEX.test(token.trim());
 }
 
 export function getExpoPushConfig(): ExpoPushConfig {

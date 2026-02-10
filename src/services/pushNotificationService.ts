@@ -4,6 +4,7 @@ import {
   EXPO_PUSH_API_URL,
   expoPushConfig,
   isExpoPushErrorCode,
+  isValidExpoPushToken,
 } from '../config/expoPushConfig.js';
 import { logger } from '../utils/logger.js';
 import { UserDeviceModel } from '../models/mongoose/userDevices.js';
@@ -13,6 +14,7 @@ import { createError } from '../middleware/errorHandler.js';
 const EXPO_BATCH_SIZE = 100; // Expo allows max 100 messages per request
 const MAX_RETRIES = 3;
 const INITIAL_RETRY_DELAY_MS = 1000; // 1 second
+const EXPO_REQUEST_TIMEOUT_MS = 15000;
 
 export interface PushNotificationPayload {
   title: string;
@@ -41,6 +43,7 @@ export interface ExpoPushMessage {
 // Zod schema for runtime validation of Expo API response
 const ExpoPushResultSchema = z.object({
   status: z.enum(['ok', 'error']),
+  id: z.string().optional(),
   message: z.string().optional(),
   details: z
     .object({
@@ -107,59 +110,8 @@ export class PushNotificationService {
     expoPushToken: string,
     payload: PushNotificationPayload
   ): Promise<PushNotificationResult> {
-    if (!this.isConfigured()) {
-      return { success: false, error: 'Push notifications not configured' };
-    }
-
-    if (!expoPushToken) {
-      return { success: false, error: 'Invalid push token' };
-    }
-
-    try {
-      const message: ExpoPushMessage = {
-        to: expoPushToken,
-        title: payload.title,
-        body: payload.body,
-        data: payload.data,
-        sound: payload.sound ?? 'default',
-        priority: payload.priority ?? 'high',
-        channelId: payload.channelId,
-      };
-
-      const response = await this.sendToExpo([message]);
-
-      const result = response.data[0];
-
-      if (!result) {
-        return { success: false, error: 'No result from Expo API' };
-      }
-
-      if (result.status === 'ok' && result.pushNotificationId) {
-        logger.info(
-          `Push notification sent successfully: ${result.pushNotificationId}`
-        );
-        return { success: true, messageId: result.pushNotificationId };
-      }
-
-      const error = result.details?.error ?? result.message ?? 'Unknown error';
-
-      if (isExpoPushErrorCode(error)) {
-        const shouldRemove =
-          error === 'DeviceNotRegistered' || error === 'InvalidCredentials';
-        logger.warn(`Push notification failed: ${error}`, {
-          shouldRemoveToken: shouldRemove,
-        });
-        return { success: false, error, shouldRemoveToken: shouldRemove };
-      }
-
-      logger.error(`Push notification failed: ${error}`);
-      return { success: false, error };
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error';
-      logger.error(`Push notification error: ${errorMessage}`);
-      return { success: false, error: errorMessage };
-    }
+    const [result] = await this.sendNotifications([expoPushToken], payload);
+    return result ?? { success: false, error: 'No result from Expo API' };
   }
 
   /**
@@ -169,6 +121,10 @@ export class PushNotificationService {
     expoPushTokens: string[],
     payload: PushNotificationPayload
   ): Promise<PushNotificationResult[]> {
+    if (expoPushTokens.length === 0) {
+      return [];
+    }
+
     if (!this.isConfigured()) {
       return expoPushTokens.map(() => ({
         success: false,
@@ -176,7 +132,52 @@ export class PushNotificationService {
       }));
     }
 
-    const messages: ExpoPushMessage[] = expoPushTokens.map(token => ({
+    const normalizedTokens = expoPushTokens.map(token => token.trim());
+    const results: (PushNotificationResult | undefined)[] = Array.from(
+      { length: normalizedTokens.length },
+      () => undefined
+    );
+    const tokenIndexes = new Map<string, number[]>();
+
+    normalizedTokens.forEach((token, index) => {
+      const indexes = tokenIndexes.get(token);
+      if (indexes) {
+        indexes.push(index);
+      } else {
+        tokenIndexes.set(token, [index]);
+      }
+    });
+
+    const uniqueTokens = Array.from(tokenIndexes.keys());
+    const validTokens: string[] = [];
+
+    uniqueTokens.forEach(token => {
+      if (!isValidExpoPushToken(token)) {
+        const indexes = tokenIndexes.get(token) ?? [];
+        indexes.forEach(index => {
+          results[index] = {
+            success: false,
+            error: 'Invalid Expo push token format',
+            shouldRemoveToken: true,
+          };
+        });
+        return;
+      }
+
+      validTokens.push(token);
+    });
+
+    if (validTokens.length === 0) {
+      return results.map(
+        result =>
+          result ?? {
+            success: false,
+            error: 'Unknown push notification result',
+          }
+      );
+    }
+
+    const messages: ExpoPushMessage[] = validTokens.map(token => ({
       to: token,
       title: payload.title,
       body: payload.body,
@@ -189,27 +190,40 @@ export class PushNotificationService {
     try {
       const response = await this.sendToExpo(messages);
 
-      return response.data.map(result => {
-        if (result.status === 'ok' && result.pushNotificationId) {
-          return { success: true, messageId: result.pushNotificationId };
-        }
+      validTokens.forEach((token, index) => {
+        const expoResult = response.data[index];
+        const mappedResult = expoResult
+          ? this.mapExpoResult(expoResult)
+          : { success: false, error: 'No result from Expo API' };
 
-        const error =
-          result.details?.error ?? result.message ?? 'Unknown error';
-        const shouldRemove =
-          error === 'DeviceNotRegistered' || error === 'InvalidCredentials';
-
-        return { success: false, error, shouldRemoveToken: shouldRemove };
+        const indexes = tokenIndexes.get(token) ?? [];
+        indexes.forEach(resultIndex => {
+          results[resultIndex] = mappedResult;
+        });
       });
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error';
       logger.error(`Bulk push notification error: ${errorMessage}`);
-      return expoPushTokens.map(() => ({
-        success: false,
-        error: errorMessage,
-      }));
+
+      validTokens.forEach(token => {
+        const indexes = tokenIndexes.get(token) ?? [];
+        indexes.forEach(index => {
+          results[index] = {
+            success: false,
+            error: errorMessage,
+          };
+        });
+      });
     }
+
+    return results.map(
+      result =>
+        result ?? {
+          success: false,
+          error: 'Unknown push notification result',
+        }
+    );
   }
 
   /**
@@ -229,7 +243,7 @@ export class PushNotificationService {
       return { sent: 0, failed: 0, tokensToRemove: [] };
     }
 
-    const tokens = devices.map(d => d.expoPushToken);
+    const tokens = [...new Set(devices.map(d => d.expoPushToken))];
     const results = await this.sendNotifications(tokens, payload);
 
     let sent = 0;
@@ -271,39 +285,85 @@ export class PushNotificationService {
     deviceName?: string,
     appVersion?: string
   ): Promise<void> {
-    const existingDevice = await UserDeviceModel.findOne({ deviceId })
+    const normalizedToken = expoPushToken.trim();
+    const normalizedDeviceId = deviceId.trim();
+    const normalizedDeviceNameValue = deviceName?.trim();
+    const normalizedAppVersionValue = appVersion?.trim();
+    const normalizedDeviceName =
+      normalizedDeviceNameValue === '' ? undefined : normalizedDeviceNameValue;
+    const normalizedAppVersion =
+      normalizedAppVersionValue === '' ? undefined : normalizedAppVersionValue;
+
+    if (!normalizedDeviceId) {
+      throw createError('Device ID is required', 400, 'INVALID_DEVICE_ID');
+    }
+
+    if (!isValidExpoPushToken(normalizedToken)) {
+      throw createError(
+        'Invalid Expo push token format',
+        400,
+        'INVALID_PUSH_TOKEN'
+      );
+    }
+
+    const existingDevice = await UserDeviceModel.findOne({
+      deviceId: normalizedDeviceId,
+    })
       .select('userId')
       .lean()
       .exec();
 
     if (existingDevice && existingDevice.userId.toString() !== userId) {
-      throw createError('Device ID already belongs to another user', 409, 'DEVICE_OWNERSHIP_CONFLICT');
+      logger.warn(
+        `Transferring device ${normalizedDeviceId} from user ${existingDevice.userId.toString()} to user ${userId}`
+      );
     }
 
-    const existingToken = await UserDeviceModel.findOne({ expoPushToken, isActive: true })
-      .select('userId deviceId')
-      .lean()
-      .exec();
+    const tokenCollisionCleanup = await UserDeviceModel.updateMany(
+      {
+        expoPushToken: normalizedToken,
+        isActive: true,
+        deviceId: { $ne: normalizedDeviceId },
+      },
+      { $set: { isActive: false } }
+    );
 
-    if (existingToken && existingToken.userId.toString() !== userId && existingToken.deviceId !== deviceId) {
-      throw createError('Push token already belongs to another user', 409, 'TOKEN_OWNERSHIP_CONFLICT');
+    if (tokenCollisionCleanup.modifiedCount > 0) {
+      logger.warn(
+        `Deactivated ${tokenCollisionCleanup.modifiedCount} token collision record(s) for token reassignment`
+      );
     }
 
     await UserDeviceModel.findOneAndUpdate(
-      { deviceId, userId: new Types.ObjectId(userId) },
+      { deviceId: normalizedDeviceId },
       {
         userId: new Types.ObjectId(userId),
-        expoPushToken,
-        deviceName: deviceName ?? undefined,
+        expoPushToken: normalizedToken,
+        deviceName: normalizedDeviceName,
         platform,
-        appVersion: appVersion ?? undefined,
+        appVersion: normalizedAppVersion,
         lastActiveAt: new Date(),
         isActive: true,
       },
-      { upsert: true, new: true }
+      { upsert: true, new: true, runValidators: true }
     );
 
-    logger.info(`Device registered: ${deviceId} for user ${userId}`);
+    const postUpsertTokenCleanup = await UserDeviceModel.updateMany(
+      {
+        expoPushToken: normalizedToken,
+        isActive: true,
+        deviceId: { $ne: normalizedDeviceId },
+      },
+      { $set: { isActive: false } }
+    );
+
+    if (postUpsertTokenCleanup.modifiedCount > 0) {
+      logger.warn(
+        `Post-upsert cleanup deactivated ${postUpsertTokenCleanup.modifiedCount} token collision record(s)`
+      );
+    }
+
+    logger.info(`Device registered: ${normalizedDeviceId} for user ${userId}`);
   }
 
   /**
@@ -329,7 +389,34 @@ export class PushNotificationService {
       .select('expoPushToken')
       .lean();
 
-    return devices.map(d => d.expoPushToken);
+    return [...new Set(devices.map(d => d.expoPushToken))];
+  }
+
+  private mapExpoResult(
+    result: z.infer<typeof ExpoPushResultSchema>
+  ): PushNotificationResult {
+    const messageId = result.pushNotificationId ?? result.id;
+
+    if (result.status === 'ok') {
+      if (!messageId) {
+        logger.warn('Expo returned ok status without notification id');
+      }
+      return { success: true, messageId };
+    }
+
+    const error = result.details?.error ?? result.message ?? 'Unknown error';
+
+    if (isExpoPushErrorCode(error)) {
+      const shouldRemove =
+        error === 'DeviceNotRegistered' || error === 'InvalidCredentials';
+      logger.warn(`Push notification failed: ${error}`, {
+        shouldRemoveToken: shouldRemove,
+      });
+      return { success: false, error, shouldRemoveToken: shouldRemove };
+    }
+
+    logger.error(`Push notification failed: ${error}`);
+    return { success: false, error };
   }
 
   /**
@@ -405,15 +492,27 @@ export class PushNotificationService {
   ): Promise<ExpoPushResponse> {
     const plainMessages = messages.map(({ _internal, ...msg }) => msg);
 
-    const response = await fetch(EXPO_PUSH_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        Authorization: `Bearer ${this.accessToken}`,
-      },
-      body: JSON.stringify(plainMessages),
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(
+      () => controller.abort(),
+      EXPO_REQUEST_TIMEOUT_MS
+    );
+
+    let response: Response;
+    try {
+      response = await fetch(EXPO_PUSH_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          Authorization: `Bearer ${this.accessToken}`,
+        },
+        body: JSON.stringify(plainMessages),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -450,6 +549,8 @@ export class PushNotificationService {
       'too many requests',
       'timeout',
       'timed out',
+      'aborted',
+      'aborterror',
       'econnreset',
       'econnrefused',
       'socket hang up',

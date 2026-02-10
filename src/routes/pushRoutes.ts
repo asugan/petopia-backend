@@ -4,20 +4,25 @@ import { pushNotificationService } from '../services/pushNotificationService.js'
 import { z } from 'zod';
 import { validateRequest } from '../middleware/validation.js';
 import { createError } from '../middleware/errorHandler.js';
+import { isValidExpoPushToken } from '../config/expoPushConfig.js';
 
 const router = Router();
 
 // Validation schema for device registration
 const registerDeviceSchema = z.object({
-  expoPushToken: z.string().min(1, 'Push token is required'),
-  deviceId: z.string().min(1, 'Device ID is required'),
+  expoPushToken: z
+    .string()
+    .trim()
+    .min(1, 'Push token is required')
+    .refine(isValidExpoPushToken, 'Invalid Expo push token format'),
+  deviceId: z.string().trim().min(1, 'Device ID is required').max(255),
   platform: z.enum(['ios', 'android', 'web']),
-  deviceName: z.string().optional(),
-  appVersion: z.string().optional(),
+  deviceName: z.string().trim().max(120).optional(),
+  appVersion: z.string().trim().max(50).optional(),
 });
 
 const deactivateDeviceSchema = z.object({
-  deviceId: z.string().min(1, 'Device ID is required'),
+  deviceId: z.string().trim().min(1, 'Device ID is required').max(255),
 });
 
 // POST /api/push/devices - Register or update device push token
@@ -59,7 +64,10 @@ router.delete(
 
       // Verify the device belongs to this user
       const { UserDeviceModel } = await import('../models/mongoose/index.js');
-      const device = await UserDeviceModel.findOne({ deviceId: validatedBody.deviceId, userId });
+      const device = await UserDeviceModel.findOne({
+        deviceId: validatedBody.deviceId,
+        userId,
+      });
 
       if (!device) {
         throw createError('Device not found', 404, 'DEVICE_NOT_FOUND');
@@ -86,7 +94,9 @@ router.get('/devices', async (req: AuthenticatedRequest, res, next) => {
     const devices = await UserDeviceModel.find({
       userId,
       isActive: true,
-    }).select('-expoPushToken -__v').lean();
+    })
+      .select('-expoPushToken -__v')
+      .lean();
 
     res.json({
       success: true,
